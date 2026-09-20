@@ -72,6 +72,12 @@ PAGES = [
     ("Getting started", "site/install.md", "install.html", "Install"),
     ("Getting started", "language/12_MANED_LANGUAGE_GUIDE.md",
      "guides/language.html", "Language guide"),
+    # Written FOR the site: the workspace has the op TABLE (language guide §6)
+    # and a corpus of example scripts, but nothing that teaches the integer
+    # linear algebra itself - the scale arithmetic, the exact solvers, and the
+    # matmul idioms that stand in for the loops the language does not have.
+    ("Getting started", "site/linear-algebra.md",
+     "linear-algebra.html", "Linear algebra"),
     ("Getting started", "site/under-the-hood.md",
      "under-the-hood.html", "How Maned runs your program"),
     # Written FOR the site from maned-bark/docs/operations/OPERATOR_GUIDE.md,
