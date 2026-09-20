@@ -188,9 +188,8 @@ annotation changes local interpreter behavior.
 - Select operations by arity.
 - Distinguish registry support from backend execution support.
 
-This table is sourced from the executability sets in
-`maned_lang/include/maned/ops/executable_ops.h` (gap_005) — the same
-truth lint's W011 rule reads, test-pinned against the evaluator modules and
+This table is generated from the toolchain's own executability sets — the
+same truth lint's W011 rule reads, test-pinned against the evaluator modules and
 the binary-IR opcode table. Three states: **local** (the interpreter
 executes it), **remote** (a bark worker / the Bark VM executes it),
 **registry-only** (parses and shape-infers, refuses at run time; lint
@@ -269,13 +268,13 @@ in::sy = { rows: 4, cols: 4, symmetric: true } synth;  # properties -> matrix
 
 ### Worker-contract limits (the real numbers)
 
-Enforced identically by maned-run and maned-lint (gap_014, `ELIMIT`),
-from `maned_lang/include/maned/ir/limits.h`:
+Enforced identically by `maned-run` and `maned-lint` (`ELIMIT`), so a
+flow that will not fit a worker is refused before it is sent:
 
 - **Register-file slots — 256 or 4096, depending on the worker.** A flow may
   compile to at most that many values post-inline (params + consts + ops).
-  ABI v1 used u8 value ids (`kRfSlots` = 256); ABI v2 (gap_009) widened them
-  to u16 with `kRfSlotsV2` = 4096. The budget checked is the one the *target*
+  ABI v1 used 8-bit value ids, capping the file at 256; ABI v2 widened them
+  to 16-bit, raising it to 4096. The budget checked is the one the *target*
   worker advertises, so an oversized flow refuses with the numbers of the
   machine it was actually headed for. Locally and in lint the v2 budget is
   used, on the principle that what runs here should also ship.
@@ -307,7 +306,7 @@ calc::lambda_flow layer(x, w, bias) {
 Status: **Local runtime**. For `x` and `w` shaped `2x2`:
 
 ```bash
-./maned-run maned_lang/tests/cli/matmul_relu.mnd \
+./maned-run layer.mnd \
   --flow layer \
   --in x=2x2:1,2,3,4 \
   --in w=2x2:5,6,7,8 \
@@ -498,7 +497,7 @@ until a campaign needs it):
 
 | Combinator | State |
 |---|---|
-| `identity`, `kestrel`, `kite`, `compose` | **Internal-only** — implemented as lang_017 evaluator terms (`src/interp/lambda.cpp`), reachable from `.mnd` only where the evaluator is engaged (see `example_lambda_birds.mnd`); statement-context use errors "not reachable from this context" |
+| `identity`, `kestrel`, `kite`, `compose` | **Internal-only** — implemented as evaluator terms, reachable from `.mnd` only where the lambda evaluator is engaged; statement-context use errors "not reachable from this context" |
 | `mockingbird`, `bluebird`, `cardinal`, `starling`, `thrush`, `warbler`, `owl`, `bluebird_prime`, `blackbird`, `psi`, `phoenix`, `vireo` | **Reserved** — no implementation anywhere; statement use errors "reserved but has no implementation" (lang_058) |
 | `ycombinator` | **Reserved, and cannot become a term** under the strict evaluator — it would diverge; it needs call-by-name or a fuel-bounded fixpoint first. Do not file "implement ycombinator" as a small ticket. |
 
@@ -845,8 +844,8 @@ Write a flow computing `(a + b) * c`. Predict the result for `a=2`, `b=3`, `c=4`
 
 ### Lab 2: activation pipeline
 
-Extend `maned_lang/tests/cli/matmul_relu.mnd` so the flow also returns
-`tensor_sum(result)` as `total`.
+Extend the `layer` flow above so it also returns `tensor_sum(result)` as
+`total`.
 
 ### Lab 3: clocked graph
 

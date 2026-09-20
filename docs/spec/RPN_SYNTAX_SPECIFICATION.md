@@ -7,7 +7,7 @@
 **Version:** 1.1.0
 **Last Updated:** 2026-09-17 (gap_041 retraction pass; originally 2026-06-01)
 **Owner:** frontend_parser_engineer
-**Companion artifact:** [`maned.ebnf`](../../maned_lang/grammar/maned.ebnf), [`reserved_words.txt`](../../maned_lang/grammar/reserved_words.txt)
+**Companion artifacts:** a formal EBNF grammar and the reserved-word list, both maintained alongside the parser. The reserved words are reproduced in §8.
 
 > ### Retracted constructs
 >
@@ -34,10 +34,9 @@
 This document is the authoritative **prose specification** of the Maned surface
 syntax. It pins down the lexical structure, the grammatical constructs, and — most
 importantly — the **ambiguity-resolution decisions** that turn the informal design
-in the original informal design notes (since archived to `_attic_maned_lang/`)
-into a precisely parsable language.
+in the original informal design notes into a precisely parsable language.
 
-The companion file `grammar/maned.ebnf` is the formal grammar. Every decision
+A formal EBNF grammar accompanies this prose. Every decision
 below is tagged `[A-n]` and cross-referenced from the grammar. Where the informal
 spec was silent or contradictory, this document **makes the decision** and records
 the rationale, which is exactly the deliverable lang_001 is responsible for.
@@ -175,7 +174,7 @@ runtime.
 
 ### [A-9] Operators vs. operands are decided by the reserved-words table
 A bare identifier is an **operator/combinator/stack-op** iff it appears in
-`grammar/reserved_words.txt`; otherwise it is an **operand** (a variable
+the reserved-word list (§8); otherwise it is an **operand** (a variable
 reference). Arity for reduction comes from the operator's signature (defined in
 lang_004), not from the grammar. *Rationale:* keeps the grammar fixed while letting
 the primitive set grow through data, not grammar edits.
@@ -289,12 +288,12 @@ which exist in the classic languages.
 
 ## 8. Reserved Words
 
-The canonical list is `grammar/reserved_words.txt` (loaded by the lexer). It is
-grouped into: namespaces, directives, definitions, keywords, types, stack ops,
-arithmetic, comparison, logic, combinators, and primitives. Using any reserved word
-as an assignment target or parameter name is a compile error `[A-9]`. The primitive
-set is **extensible by appending to the file** plus a corresponding semantics spec
-(lang_004); no grammar change is needed.
+The canonical list is loaded by the lexer and grouped into: namespaces,
+directives, definitions, keywords, types, stack ops, arithmetic, comparison,
+logic, combinators, and primitives. Using any reserved word as an assignment
+target or parameter name is a compile error `[A-9]`. The primitive set is
+**extensible**: adding one needs a new entry plus a semantics spec, not a
+grammar change.
 
 ---
 
@@ -302,8 +301,8 @@ set is **extensible by appending to the file** plus a corresponding semantics sp
 
 | Acceptance criterion | Where satisfied |
 |----------------------|-----------------|
-| Complete BNF/EBNF grammar | `grammar/maned.ebnf` |
-| Reserved keywords | `grammar/reserved_words.txt` + §8 |
+| Complete BNF/EBNF grammar | the companion EBNF artifact |
+| Reserved keywords | §8 |
 | Operator/precedence rules | §4 `[A-6]` (none, by design) |
 | Tensor literal syntax | EBNF §8; this doc §5 |
 | Function/lambda syntax | EBNF §3/§7; `[A-8]` |

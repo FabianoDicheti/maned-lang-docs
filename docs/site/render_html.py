@@ -60,46 +60,28 @@ SITE_URL = "https://maned-lang.com"
 # ---------------------------------------------------------------------------
 
 PAGES = [
-    # The landing page is written FOR the site (site/home.md), not reused from
-    # docs/README.md: that file is the workspace's internal index. It opens by
-    # explaining that maned_lang/ is kept dry, indexes documents this site does
-    # not carry, and points at ../mnd_scripts/ - none of which a visitor can
-    # resolve. It is still published, as "Documentation map", where that framing
-    # is the point rather than the first thing a reader meets.
+    # AUDIENCE: people writing Maned programs. Not contributors - the compiler
+    # source is not published, so a page that says "see src/net/dispatch.cpp"
+    # sends the reader somewhere they cannot go. The workspace's 01-11
+    # reference chapters, the compiler-development guide, the build-from-source
+    # guide and the project scorecards are all maintenance documentation and
+    # are deliberately absent; site/under-the-hood.md covers the same machinery
+    # from the outside, in terms of what it costs and buys the reader.
     ("", "site/home.md", "index.html", "Home"),
-    ("", "README.md", "documentation-map.html", "Documentation map"),
 
-    # site/install.md is REGENERATED from maned_lang/packaging/dist-repo/INSTALL.md
-    # by tools/sync_docs.sh - the same file that ships in the release tarballs
-    # and the public dist repo, so the site cannot document a different install
-    # than the one people actually run.
     ("Getting started", "site/install.md", "install.html", "Install"),
-    ("Getting started", "language/13_MANED_USAGE_GUIDE.md",
-     "getting-started.html", "Build from source"),
+    ("Getting started", "language/12_MANED_LANGUAGE_GUIDE.md",
+     "guides/language.html", "Language guide"),
+    ("Getting started", "site/under-the-hood.md",
+     "under-the-hood.html", "How Maned runs your program"),
 
-    ("Reference", "language/00_README.md", "reference/index.html", "Overview"),
-    ("Reference", "language/01_PROJECT_STRUCTURE.md", "reference/01-project-structure.html", "01 · Project structure"),
-    ("Reference", "language/02_LANGUAGE_FRONTEND.md", "reference/02-language-frontend.html", "02 · Language frontend"),
-    ("Reference", "language/03_IR_AND_PROTOCOLS.md", "reference/03-ir-and-protocols.html", "03 · IR and protocols"),
-    ("Reference", "language/04_INTERPRETER_AND_QUANTIZATION.md", "reference/04-interpreter-and-quantization.html", "04 · Interpreter and quantization"),
-    ("Reference", "language/05_MLIR_COMPILER.md", "reference/05-mlir-compiler.html", "05 · MLIR compiler"),
-    ("Reference", "language/06_NETWORK_AND_DISPATCH.md", "reference/06-network-and-dispatch.html", "06 · Network and dispatch"),
-    ("Reference", "language/07_CLI_AND_SCRIPTS.md", "reference/07-cli-and-scripts.html", "07 · CLI and scripts"),
-    ("Reference", "language/08_BUILD_AND_ARTIFACTS.md", "reference/08-build-and-artifacts.html", "08 · Build and artifacts"),
-    ("Reference", "language/09_TESTING.md", "reference/09-testing.html", "09 · Testing"),
-    ("Reference", "language/10_BENCHMARKS_AND_EXAMPLES.md", "reference/10-benchmarks-and-examples.html", "10 · Benchmarks and examples"),
-    ("Reference", "language/11_EDITOR_INTEGRATION.md", "reference/11-editor-integration.html", "11 · Editor integration"),
+    ("Going further", "language/15_REMOTE_WORKER_GUIDE.md",
+     "guides/remote-workers.html", "Remote workers"),
+    ("Going further", "language/16_DIAGNOSTICS.md",
+     "guides/diagnostics.html", "Diagnostics reference"),
 
-    ("Guides", "language/12_MANED_LANGUAGE_GUIDE.md", "guides/language.html", "Language guide"),
-    ("Guides", "language/14_MANED_COMPILER_DEVELOPMENT_GUIDE.md", "guides/compiler-development.html", "Compiler development"),
-    ("Guides", "language/15_REMOTE_WORKER_GUIDE.md", "guides/remote-workers.html", "Remote workers"),
-    ("Guides", "language/16_DIAGNOSTICS.md", "guides/diagnostics.html", "Diagnostics reference"),
-    ("Guides", "language/17_OBJECTIVES.md", "guides/objectives.html", "Objectives"),
-
-    ("Specification", "spec/RPN_SYNTAX_SPECIFICATION.md", "spec/rpn-syntax.html", "RPN syntax (normative)"),
-    ("Specification", "spec/GRAMMAR_NOTES.md", "spec/grammar-notes.html", "Grammar notes"),
-
-    ("Contract", "contracts/INTEGRATION_CONTRACT.md", "contract/integration.html", "Integration contract"),
+    ("Specification", "spec/RPN_SYNTAX_SPECIFICATION.md",
+     "spec/rpn-syntax.html", "RPN syntax (normative)"),
 
     # ── Examples ────────────────────────────────────────────────────────────
     # Reserved slot, owned by a separate work stream. It is generated from the
@@ -117,6 +99,26 @@ PAGES = [
 # to one is not an error - the link is flattened to plain text. Anything not in
 # this set and not in PAGES is a genuine broken link and fails the build.
 UNPUBLISHED = {
+    # Maintenance and project documentation - see the note on PAGES.
+    "README.md",
+    "language/00_README.md",
+    "language/01_PROJECT_STRUCTURE.md",
+    "language/02_LANGUAGE_FRONTEND.md",
+    "language/03_IR_AND_PROTOCOLS.md",
+    "language/04_INTERPRETER_AND_QUANTIZATION.md",
+    "language/05_MLIR_COMPILER.md",
+    "language/06_NETWORK_AND_DISPATCH.md",
+    "language/07_CLI_AND_SCRIPTS.md",
+    "language/08_BUILD_AND_ARTIFACTS.md",
+    "language/09_TESTING.md",
+    "language/10_BENCHMARKS_AND_EXAMPLES.md",
+    "language/11_EDITOR_INTEGRATION.md",
+    "language/13_MANED_USAGE_GUIDE.md",
+    "language/14_MANED_COMPILER_DEVELOPMENT_GUIDE.md",
+    "language/17_OBJECTIVES.md",
+    "spec/GRAMMAR_NOTES.md",
+    "contracts/INTEGRATION_CONTRACT.md",
+
     # Directories the docs index but the site does not carry. These are
     # listed BY NAME rather than detected on disk on purpose: the mirror does
     # not contain them at all, so a filesystem check would resolve one way in
@@ -156,6 +158,7 @@ UNPUBLISHED = {
 }
 
 SOURCE_TO_OUTPUT = {src: out for _, src, out, _ in PAGES}
+OUTPUTS = {out for _, _, out, _ in PAGES}
 
 
 def png_size(path: Path):
@@ -213,6 +216,15 @@ def _resolve_link(target: str, src: str, where: str) -> str | None:
     # than to markdown sources, because the page they point at may have no
     # one-to-one source - so resolve it against the site root, not the disk.
     if path.endswith(".html"):
+        # Validate it: these are hand-written in site/*.md and point at output
+        # paths, so removing a page from PAGES silently turns every link to it
+        # into a 404. The markdown-source links are checked against the
+        # allowlist; these have to be checked against the built page set.
+        if path not in OUTPUTS:
+            raise BuildError(
+                f"{where}: link to '{target}' names no published page.\n"
+                f"        Published pages: {', '.join(sorted(OUTPUTS))}"
+            )
         depth = SOURCE_TO_OUTPUT[src].count("/")
         return "../" * depth + target
 

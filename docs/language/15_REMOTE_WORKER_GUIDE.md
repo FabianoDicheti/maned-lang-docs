@@ -85,11 +85,11 @@ only:
 MANED_BOB_PASS=... ./maned-run demos/remote_01_offload_matmul.mnd
 ```
 
-A literal `pass = "..."` is legal and the checked-in lab demos under
-`mnd_scripts/demos/` still use one for zero-setup execution on a private
-bench. It is deliberately noisy: the linter emits a plaintext-password
-warning for it, which is why the runs recorded further down this page report
-one. Do not copy that form into anything shared.
+A literal `pass = "..."` is legal, and convenient on a private bench where
+zero setup matters more than hygiene. It is deliberately noisy: the linter
+emits a plaintext-password warning for it, which is why some of the runs
+recorded further down this page report one. Do not copy that form into
+anything shared.
 
 ## 3. Example 01: smallest offload
 
@@ -432,14 +432,9 @@ When no bark machine is on the network, the same programs run on the
 are bit-identical to hardware by construction (it byte-matches the same
 golden fixtures firmware must match).
 
-Build it once from the bark repo:
-
-```
-cd bark && tools/barkvm/build.sh
-# -> bark/tools/barkvm/bark-vm  (+ the maned-bark-here symlink)
-```
-
-Two ways to use it:
+The VM ships with the bark worker distribution as a `bark-vm` binary (plus a
+`maned-bark-here` alias); it is not part of the `maned-run` install. Two ways
+to use it:
 
 1. **Interactive** — run `maned-bark-here` in a terminal. You get the
    bark machine console (status faceplate, [R]eboot / [P] setup / [L]og
@@ -456,7 +451,6 @@ Routing and verification are the standard forms:
 ```
 ./maned-run demo.mnd --device local            # whole script to the VM
 ./maned-run demo.mnd --verify                  # script-routed + verify
-MANED_BARK_VM=.../bark-vm tools/test_barkvm_e2e.sh     # acceptance
 ```
 
 An unreachable network worker auto-falls back to the VM with a notice

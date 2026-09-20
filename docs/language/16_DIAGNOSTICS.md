@@ -5,16 +5,12 @@
 > expects to land here. Wording may be improved; a code's **meaning** may not
 > change, and a retired code is never reused. (2026-09-16)
 
-Every code below is emitted by `maned_lang/src/parse/parser.cpp`,
-`src/lint/linter.cpp`, or `tools/maned-run/maned_run.cpp`. The suite
-`tests/cli/test_docs_coverage_drift.cpp` fails if an emitter mints a code that
-appears in no ledger, so this file cannot silently fall behind the code.
+Every code below is emitted by the parser, the linter, or `maned-run`
+itself. A drift test fails the build if any tool mints a code that appears in
+no ledger, so this page cannot silently fall behind the toolchain.
 
-Before this file existed the ledger was split across
-`docs/capability/language_surface.md` (E001–E010) and
-`priority/gap_2026-09/README.md` (E007 onward), and neither was complete. Those
-remain useful as history — the capability snapshot records which codes had
-tests — but **this file is the reference**.
+This page is the reference. Earlier, partial lists existed in internal
+working notes; where they disagree with this one, this one is right.
 
 ## Errors
 
@@ -42,7 +38,7 @@ tests — but **this file is the reference**.
 | `E020` | `mnd::checkpoint_every` is parsed but consumed by nothing. Gradient checkpointing tunes a backward pass; there is no autodiff phase to checkpoint. Reserved alongside `mnd::backpropagation` (E015). |
 
 `WPARSE` is separate and unnumbered: a parser *warning* (as opposed to an
-error), printed by `maned-lint` at `tools/maned-lint/maned_lint.cpp:77`.
+error), printed by `maned-lint`.
 It carries the parser's own message and location rather than a fixed text, so
 it has no row of its own.
 
