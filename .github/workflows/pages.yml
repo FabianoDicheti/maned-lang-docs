@@ -42,6 +42,20 @@ jobs:
       - name: Build site
         run: python3 docs/site/render_html.py --out _site
 
+      # The custom domain has to travel INSIDE the artifact. With a
+      # branch-based deploy GitHub reads CNAME from the branch; with an
+      # Actions deploy it reads whatever was uploaded, so a CNAME left only
+      # at the repo root is silently ignored and the domain resets on every
+      # publish.
+      - name: Carry the custom domain into the artifact
+        run: |
+          if [ -f CNAME ]; then
+            cp CNAME _site/CNAME
+            echo "custom domain: $(cat CNAME)"
+          else
+            echo "no CNAME file; serving from github.io"
+          fi
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
