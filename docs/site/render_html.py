@@ -108,6 +108,13 @@ PAGES = [
 
     ("Going further", "language/15_REMOTE_WORKER_GUIDE.md",
      "guides/remote-workers.html", "Remote workers"),
+    # The combinator/lambda story. Section 11 of the language guide is a
+    # status TABLE (what is implemented, reserved, retracted); this page is
+    # the part a reader needs first - that the stack operators ARE the birds,
+    # so nothing is missing from a program that never names one.
+    ("Going further", "site/lambda-calculus.md",
+     "guides/lambda-calculus.html", "Lambda calculus and the birds"),
+
     ("Going further", "language/16_DIAGNOSTICS.md",
      "guides/diagnostics.html", "Diagnostics reference"),
 

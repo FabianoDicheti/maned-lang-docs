@@ -88,6 +88,7 @@ compares the results exactly, so the claim is checkable rather than asserted.
 | Turn a spare x86 machine into a worker | [Set up a Bark machine](bark-machines.html) |
 | Understand what happens when you hit enter | [How Maned runs your program](under-the-hood.html) |
 | Offload flows to workers, or run the Bark VM | [Remote workers](guides/remote-workers.html) |
+| See why postfix is combinatory logic, and which birds are real | [Lambda calculus and the birds](guides/lambda-calculus.html) |
 | Look up an error or warning code | [Diagnostics reference](guides/diagnostics.html) |
 | Find the authoritative rule for a syntax question | [RPN syntax specification](spec/rpn-syntax.html) |
 
