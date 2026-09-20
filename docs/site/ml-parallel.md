@@ -43,7 +43,8 @@ ml error [41:1] ml definition 'fit' (kmeans): is coordinator-only
 ## Declaring the workers
 
 A `device::` block resolves an alias to a worker. Nothing about it is
-ML-specific:
+ML-specific — and if you do not have a worker yet,
+[Set up a Bark machine](bark-machines.html) turns a spare x86 laptop into one:
 
 ```mnd
 device::rex {

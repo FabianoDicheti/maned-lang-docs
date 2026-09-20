@@ -74,6 +74,13 @@ PAGES = [
      "guides/language.html", "Language guide"),
     ("Getting started", "site/under-the-hood.md",
      "under-the-hood.html", "How Maned runs your program"),
+    # Written FOR the site from maned-bark/docs/operations/OPERATOR_GUIDE.md,
+    # which is an internal field document: it carries ticket numbers, file:line
+    # citations, lab machine names and the `make usb` build. This page keeps the
+    # facts and drops all of that - it starts from a reader who was handed a
+    # .img and has never seen the repo.
+    ("Getting started", "site/bark-machines.md",
+     "bark-machines.html", "Set up a Bark machine"),
 
     # The ML pages are written FOR the site (site/*.md) rather than lifted
     # from the workspace chapters: the workspace's calc::ml:: reference lives
