@@ -78,6 +78,13 @@ PAGES = [
     # matmul idioms that stand in for the loops the language does not have.
     ("Getting started", "site/linear-algebra.md",
      "linear-algebra.html", "Linear algebra"),
+    # synth / profile:: / profile_vector - the two-directional half of the
+    # algebraic story (properties -> matrix -> algebra -> matrix -> properties).
+    # Its own page rather than a section of linear-algebra.md: the vocabulary
+    # table alone is longer than most sections, and this is the feature with no
+    # equivalent in the array languages a reader is arriving from.
+    ("Getting started", "site/properties.md",
+     "properties.html", "Properties and profiles"),
     ("Getting started", "site/under-the-hood.md",
      "under-the-hood.html", "How Maned runs your program"),
     # Written FOR the site from maned-bark/docs/operations/OPERATOR_GUIDE.md,

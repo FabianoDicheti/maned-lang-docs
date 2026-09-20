@@ -50,6 +50,14 @@ r : [6] = [0, 1, 2, 3, 4, 5]
 on every machine, which is the only kind of random this language is willing to
 have.
 
+The last two are a different idea entirely. `from_spectrum` takes the
+*eigenvalues* you want and builds a matrix that has them; `synth` takes a set
+of **algebraic properties** — symmetric, tridiagonal, positive definite,
+defective, a demanded spectrum — and derives a matrix that provably satisfies
+all of them, or refuses and names the property it could not meet. That half of
+the language, together with `profile::` reading the properties back out of any
+matrix, has [its own page](properties.html).
+
 ## The core operations
 
 | Group | Ops | Runs on a worker |
@@ -339,7 +347,7 @@ executes on a Bark worker as well as locally. The rest is coordinator-only, and
 the split is not arbitrary — the worker's instruction set is the part that had
 to be small:
 
-- **Local only, no worker opcode**: `determinant`, `adjugate`, `slice`, `exp`, `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin`, `profile_vector`. A flow using one of these simply stays on the coordinator.
+- **Local only, no worker opcode**: `determinant`, `adjugate`, `slice`, `exp`, `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin`, and [`profile_vector`](properties.html#properties-as-values). A flow using one of these simply stays on the coordinator.
 - **`clip` has a routable spelling** if you need it on a worker: `min(x,hi) = hi − relu(hi−x)` and `max(x,lo) = lo + relu(x−lo)`.
 - **Registered but not executable**: `cholesky`, `lu`, `qr`, `svd`, `eigendecomp`, `inverse`, `fft`, `fft2d`, `conv1d`, `conv3d`, `multihead_attention` and others parse and shape-infer, then refuse at run time — and `maned-lint` warns (`W011`) before you ever run them. They are named so the shapes and the grammar are settled; none of them silently returns a wrong answer.
 

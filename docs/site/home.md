@@ -82,6 +82,7 @@ compares the results exactly, so the claim is checkable rather than asserted.
 | Install the toolchain in one command | [Install](install.html) |
 | Learn the language and its RPN model | [Language guide](guides/language.html) |
 | Do integer linear algebra — scale, solvers, matmul idioms | [Linear algebra](linear-algebra.html) |
+| Build a matrix from properties, or read a matrix's properties | [Properties and profiles](properties.html) |
 | Train a model — the ten `calc::ml::` algorithms | [Machine learning](guides/machine-learning.html) |
 | Spread training across workers | [Training across Bark devices](guides/ml-parallel.html) |
 | Turn a spare x86 machine into a worker | [Set up a Bark machine](bark-machines.html) |
