@@ -1,0 +1,58 @@
+# ============================================================================
+# Build and deploy the Maned documentation site to GitHub Pages.
+# ----------------------------------------------------------------------------
+# This file lives in the workspace at docs/site/pages.yml and is copied to
+# .github/workflows/pages.yml by tools/sync_docs.sh. Edit it HERE - the copy
+# in the mirror is overwritten on every sync.
+#
+# There is no dependency step on purpose. docs/site/render_html.py is standard
+# library only, so the runner's stock python3 is the whole toolchain: nothing
+# to pin, nothing to audit, nothing to break when an upstream release lands.
+# ============================================================================
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer commit supersedes an in-flight older one, but
+# never cancels a deploy that is already mid-flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python
+        run: python3 --version
+
+      # The generator fails the build on a link to a document that does not
+      # exist, so a rename that breaks a cross-reference goes red here rather
+      # than shipping a dead link.
+      - name: Build site
+        run: python3 docs/site/render_html.py --out _site
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

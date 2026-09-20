@@ -1,0 +1,422 @@
+/* ---------------------------------------------------------------------------
+   Maned documentation site.
+
+   The palette is the PDF's, so a page and its printed chapter look like the
+   same document: warm orange (#A95F2A) on cream, dark ink, and the same
+   near-black code background. Dark mode re-grounds the neutrals and leaves
+   the brand hues alone.
+
+   Code token colours are NOT here - they are generated into tokens.css from
+   CODE_COLORS in maned_md.py, so the site and the PDF highlight identically.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --maned: #A95F2A;
+  --maned-dark: #633518;
+  --cream: #FBF6EF;
+  --ink: #292521;
+  --muted: #756D66;
+  --line: #DFD3C7;
+  --code-bg: #28231F;
+
+  --bg: #FFFFFF;
+  --bg-soft: var(--cream);
+  --fg: var(--ink);
+  --fg-muted: var(--muted);
+  --border: var(--line);
+  --accent: var(--maned);
+  --heading: var(--maned-dark);
+  --link: #995324;
+  --sidebar-bg: #FAF5EE;
+  --inline-code-bg: #F2E9DE;
+  --inline-code-fg: #66381D;
+
+  --sidebar-w: 17rem;
+  --toc-w: 13rem;
+  --measure: 48rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1B1815;
+    --bg-soft: #232019;
+    --fg: #EDE4D8;
+    --fg-muted: #A2968A;
+    --border: #3A332C;
+    --accent: #E08B4C;
+    --heading: #E8A76C;
+    --link: #E8A76C;
+    --sidebar-bg: #171411;
+    --inline-code-bg: #2C2621;
+    --inline-code-fg: #F0C39A;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
+        Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.skip {
+  position: absolute; left: -9999px;
+  background: var(--accent); color: #fff; padding: .6rem 1rem; z-index: 100;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+
+/* --- Layout --------------------------------------------------------------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--toc-w);
+  align-items: start;
+  max-width: 96rem;
+  margin: 0 auto;
+}
+
+main {
+  min-width: 0;            /* lets wide tables scroll instead of stretching */
+  padding: 2.5rem 3rem 6rem;
+}
+
+article { max-width: var(--measure); }
+
+/* --- Sidebar -------------------------------------------------------------- */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 2rem 1.25rem 3rem;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--heading);
+  text-decoration: none;
+}
+.brand img { display: block; }
+
+.tagline {
+  margin: .35rem 0 1.75rem;
+  font-size: .78rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.nav-section {
+  margin: 1.5rem 0 .4rem;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.sidebar ul { list-style: none; margin: 0; padding: 0; }
+
+.sidebar li a {
+  display: block;
+  padding: .3rem .6rem;
+  margin-left: -.6rem;
+  border-radius: 5px;
+  font-size: .875rem;
+  color: var(--fg);
+  text-decoration: none;
+}
+.sidebar li a:hover { background: var(--inline-code-bg); }
+.sidebar li a.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* --- On this page --------------------------------------------------------- */
+
+.toc {
+  position: sticky;
+  top: 2.5rem;
+  padding: 2.5rem 1.5rem 2rem 0;
+  font-size: .8rem;
+}
+.toc h2 {
+  margin: 0 0 .5rem;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 0;
+}
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li { margin: .18rem 0; }
+.toc li.lv3 { padding-left: .85rem; }
+.toc a {
+  color: var(--fg-muted);
+  text-decoration: none;
+  display: block;
+  line-height: 1.4;
+}
+.toc a:hover { color: var(--accent); }
+
+/* --- Typography ----------------------------------------------------------- */
+
+h1, h2, h3, h4, h5, h6 { color: var(--heading); line-height: 1.25; }
+
+h1 {
+  margin: 0 0 1.75rem;
+  font-size: 2.1rem;
+  letter-spacing: -0.025em;
+  padding-bottom: .6rem;
+  border-bottom: 3px solid var(--accent);
+}
+h2 { margin: 2.6rem 0 .8rem; font-size: 1.45rem; }
+h3 { margin: 2rem 0 .6rem; font-size: 1.12rem; }
+h4 { margin: 1.5rem 0 .5rem; font-size: .98rem; color: var(--fg); }
+
+.anchor {
+  margin-left: .4rem;
+  color: var(--border);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity .12s;
+}
+h2:hover .anchor, h3:hover .anchor, h4:hover .anchor { opacity: 1; }
+.anchor:hover { color: var(--accent); }
+
+p { margin: 0 0 1rem; }
+
+a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+ul, ol { margin: 0 0 1rem; padding-left: 1.4rem; }
+li { margin: .3rem 0; }
+
+hr { border: 0; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+strong { font-weight: 650; }
+
+/* --- Code ----------------------------------------------------------------- */
+
+code, pre, kbd {
+  font-family: "SF Mono", SFMono-Regular, ui-monospace, "JetBrains Mono",
+               Menlo, Consolas, monospace;
+}
+
+:not(pre) > code {
+  background: var(--inline-code-bg);
+  color: var(--inline-code-fg);
+  padding: .12em .38em;
+  border-radius: 4px;
+  font-size: .87em;
+  overflow-wrap: break-word;
+}
+
+pre.code {
+  /* Never let a floated illustration narrow a code block - a wrapped command
+     line is harder to read than a picture is worth. Same for tables. */
+  clear: right;
+  position: relative;
+  background: var(--code-bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin: 0 0 1.25rem;
+  overflow-x: auto;
+  font-size: .82rem;
+  line-height: 1.55;
+  color: #FFF8EE;
+}
+pre.code code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+pre.code[data-lang]::after {
+  content: attr(data-lang);
+  position: absolute;
+  top: .45rem;
+  right: .65rem;
+  font-size: .62rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #6F6459;
+}
+
+/* --- Callouts ------------------------------------------------------------- */
+
+.callout {
+  margin: 0 0 1.25rem;
+  padding: .85rem 1.1rem;
+  background: var(--bg-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  color: var(--fg);
+}
+.callout > :last-child { margin-bottom: 0; }
+
+/* The "**Role:**" header that docs/README.md's precedence rules rely on:
+   which document wins is worth seeing before the prose. */
+.callout.role {
+  background: transparent;
+  border-left-color: var(--border);
+  font-size: .86rem;
+  color: var(--fg-muted);
+}
+
+/* --- Tables --------------------------------------------------------------- */
+
+.table-wrap {
+  clear: right;
+  overflow-x: auto;
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: .87rem; }
+
+th {
+  background: var(--maned-dark);
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+}
+th, td {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+tbody tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+
+/* --- Footer --------------------------------------------------------------- */
+
+.src {
+  margin-top: 4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: .78rem;
+  color: var(--fg-muted);
+}
+
+/* --- Mobile --------------------------------------------------------------- */
+
+.topbar { display: none; }
+.burger { cursor: pointer; font-size: 1.4rem; line-height: 1; padding: .25rem .5rem; }
+
+@media (max-width: 1180px) {
+  .shell { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+  .toc { display: none; }
+  main { padding: 2.5rem 2.5rem 6rem; }
+}
+
+@media (max-width: 860px) {
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: .6rem 1rem;
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .brand { font-size: 1.1rem; }
+  .brand.desktop { display: none; }
+
+  .shell { grid-template-columns: minmax(0, 1fr); }
+
+  .sidebar {
+    display: none;
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #nav-toggle:checked ~ .shell .sidebar { display: block; }
+
+  main { padding: 1.75rem 1.15rem 4rem; }
+  h1 { font-size: 1.65rem; }
+  h2 { font-size: 1.25rem; }
+  pre.code { font-size: .78rem; }
+}
+
+/* --- Illustrations -------------------------------------------------------- */
+
+/* The artwork is decorative and must never be the first thing between a
+   reader and the prose. On a wide screen it floats beside the text; on a
+   narrow one it drops inline at a capped width rather than squeezing the
+   measure. A full-bleed hero was the first attempt and it pushed every word
+   of the landing page below the fold. */
+figure.illus {
+  margin: 0 auto 1.5rem;
+  max-width: 22rem;
+  text-align: center;
+}
+figure.illus img {
+  max-width: 100%;
+  height: auto;
+}
+figure.illus figcaption {
+  margin-top: .5rem;
+  font-size: .78rem;
+  color: var(--fg-muted);
+}
+
+@media (min-width: 62rem) {
+  figure.illus {
+    float: right;
+    width: 20rem;
+    max-width: 40%;
+    margin: 0 0 1.25rem 2rem;
+  }
+  /* The first illustration is the page's hero: a little larger, and it clears
+     the h1 so it never collides with the title rule. */
+  article > figure.illus:first-of-type {
+    width: 22rem;
+    margin-top: .25rem;
+  }
+}
+
+/* --- Standalone page (--single) ------------------------------------------ */
+
+/* The dist repo's landing page: one column, no sidebar, same everything else
+   so it reads as the same product as the documentation site. */
+body.standalone main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 5rem;
+}
+body.standalone article { max-width: none; }
+
+body.standalone .hero {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+body.standalone .hero img { margin: 0 auto .75rem; display: block; }
+body.standalone .hero h1 {
+  border: 0;
+  padding: 0;
+  margin: 0 0 .35rem;
+  font-size: 2.6rem;
+}
+body.standalone .hero .tagline {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--fg-muted);
+}
+body.standalone .src { text-align: center; }

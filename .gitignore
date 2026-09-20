@@ -1,0 +1,5 @@
+# The built site and Python bytecode are regenerated on every build; the
+# mirror carries sources only.
+_site/
+__pycache__/
+*.pyc
