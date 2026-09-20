@@ -66,6 +66,7 @@ calc::lambda_flow multiply(a, b) @device(bob) {
 | `in::name = literal;` | Supplies a scalar or rectangular tensor without `--in`. |
 | `device::bob { ... }` | Resolves an alias to a worker and authentication method. |
 | `@device(bob)` | Routes that entire flow to the named worker. |
+| `@device(bob, rex)` | Legal only on a `calc::ml::` hyperparameter sweep: configuration *i* runs its round chain on alias *i* mod N. On a plain flow it is refused — a flow runs on one worker (the old behavior silently dropped every alias after the first). |
 | No `@device` | Leaves the flow on the controller's local interpreter. |
 
 An explicit CLI `--device` overrides script routing and selects the older

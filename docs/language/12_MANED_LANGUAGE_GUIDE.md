@@ -209,13 +209,14 @@ warns W011 up front).
 | Shape | `concat`, `reshape`, `split` | yes | yes |
 | Quantization | `quantize`, `dequantize` | — | yes |
 | Shape, local only | `slice` (one index off an axis — the inverse of `concat`) | yes | **no** |
-| Math, local only | `exp`, `sqrt`, `isqrt`, `abs`, `clip`, `argmax` | yes | **no** |
+| Math, local only | `exp`, `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin` (the argmax mirror; same tie rule, lowest index) | yes | **no** |
 | Linear algebra, local only | `determinant`, `adjugate` | yes | **no** |
 | Profiling, local only | `profile_vector` | yes | **no** |
+| ML, local only | `ml_predict` (runs a fitted model descriptor over new rows), `ml_fit` (the Tier-B native training kernel `calc::ml::` desugars to) — coordinator-only by design: inference is cheap, the parallelism that matters is in training, which the gradient-descent family reaches by desugaring to worker-legal primitives instead | yes | **no** |
 | Constructors, host-side | `zeros` `ones` `full` `eye` `diag` `range` `random` `band` `tridiag` `from_spectrum` `synth` | `in::` initializer position | n/a |
 | **Registered, not executable** | `tensor.init` `txt.read` `adaptive_avgpool2d` `cholesky` `clip_gradient` `conv1d` `conv3d` `cross_entropy` `eigendecomp` `embedding_lookup` `fft` `fft2d` `gelu` `get_timestamp` `groupnorm` `ifft` `instancenorm` `inverse` `lu` `multihead_attention` `qr` `s4_layer` `scaled_dot_attention` `selective_scan` `silu` `softplus` `svd` | no — lint warns **W011**, run refuses | no |
 
-As of 2026-09-18 that is 79 registry ops: 31 run both places, 21 run locally
+As of 2026-09-20 that is 82 registry ops: 31 run both places, 24 run locally
 only, and 27 parse and shape-infer but refuse to execute. The counts are not
 decoration — the table is generated from the sets and checked by a drift
 suite, so if an op is added to the registry and nowhere else, this table is
@@ -438,6 +439,147 @@ calc::lambda_flow train(w) {
   the rest of the language. `repeat` is sugar over the same machinery
   `@unroll(n)` bounded recursion uses; both forms produce identical
   results.
+
+### 9.4 `calc::ml::` — supervised learning as a first-class construct
+
+Training a model by hand means writing the gradient-descent loop out of
+`matmul`/`transpose`/`div` and managing the fixed-point scale at every step.
+`calc::ml::<algorithm>` does that for you — and produces a **saveable
+model**:
+
+```mnd
+calc::ml::linear_regression fit(X, y) {
+    iters: 200,
+    lr: 50,
+    features: 3,
+    fit_intercept: true,
+    standardize: true
+} return model, loss;
+
+out::model = model("house.mnm");
+```
+
+The braces hold **hyperparameters**, not RPN statements. Values are
+integers in the scaled domain (`lr: 50` at `quantres=3` means 0.05 — a
+float here is refused, E022), `true`/`false`, or a flat list `[1, 10, 100]`
+— a **sweep**: one configuration per value, round-robined across the
+`@device(a, b, c)` aliases, returning one output set per configuration.
+Only the numeric tuning knobs sweep (`lr`, `l2`, `iters`, `k`,
+`max_depth`, `trees`, `seed`, and for the 2026-09-20 pair: `rounds`,
+`eta`, `min_child_hess`); `features`, `fit_intercept`, `standardize`,
+`budget`, `depth`, `bins`, `states`, `symbols`, `steps` and `rows` shape
+the shared expansion and are refused as lists.
+
+The eleven algorithm names are closed (E021 otherwise) and split in two
+tiers:
+
+- **Tier A — desugars to wire-legal primitives**: `linear_regression`,
+  `logistic_regression` (integer-LUT `sigmoid`, bit-exact with workers),
+  `svm` (hinge). The definition rewrites into a local init flow
+  (standardization + the intercept column), a chain of gradient-descent
+  *round* flows sized to the register budget, and a local epilogue that
+  packs the model and reports the final `loss` (watch it: a stalled fit is
+  visible there, not silent). `loss` is scale-q mean squared error — for
+  `logistic_regression` the squared error of the *probabilities* (there is
+  no `log` op, so it is not log-loss) — and mean hinge for `svm`. Route the rounds with `@device(alias)`;
+  `--verify` proves the expansion bit-for-bit against the worker. The
+  `features: <d>` hyperparameter is **required** — shapes are dynamic at
+  compile time and β₀, the divisor tensors and the int32-overflow refusal
+  all need the feature count. `budget: <slots>` sizes rounds for an ABI v1
+  worker (256) instead of the v2 default (4096).
+- **Tier A, the matmul-form pair (ML_PLAN_XGB_HMM)**: `xgboost` and
+  `hmm` also desugar to wire-legal primitives — no native training
+  kernels. `xgboost` (supervised, `fit(X, y)`, y ∈ {0, 10^q}) is
+  09_xgboost.mnd's algebra generalized: a split *is* a matmul (the CUM
+  "goes-left" matrix, the `(M∘G)ᵀ·CUM` histogram pair, gain elementwise,
+  per-node argmax as a split-halving row-max fold with
+  `max(a,b) = a + relu(b−a)` plus the U-triangle prefix-scan lowest-index
+  tie-break). Hypers: `rounds: 8`, `depth: 3` (1..6), `bins: 8` (2..16),
+  `eta: 0.3·10^q`, `l2: 10^q`, `min_child_hess: 0.75·10^q`, `features:`
+  (required), `rows:` (optional — enables the exact `(10^q·rows/8)²`
+  int32 refusal; ≈370 rows at q=3), `budget:`. `hmm` (unsupervised,
+  `fit(O)` with O the `[sequences, steps]` symbol matrix, values
+  `0..V−1` at scale q) is 10_hmm.mnd's scaled forward-backward: batch
+  the sequences as rows and every Baum-Welch quantity is a matmul — the
+  3-D ξ table never exists (`uᵀ·w` contracts it). Hypers: `states: 2`
+  (2..16), `symbols:` and `steps:` (required, they shape the unrolled
+  body), `iters: 4`, `seed: 0` (0 = the canonical asymmetric start —
+  sticky A₀, 0.9-uniform B₀ rows with the leftover placed
+  asymmetrically; a nonzero seed perturbs B₀ ±5% via splitmix64, and
+  since EM converges to a fixed point of its start, the seed is part of
+  the model's provenance), `rows:`, `budget:`. Requires `quantres` 2..3
+  (the α/β renormalization scale 10^(q+1) must square inside int32).
+  Both chunk **one flow per boosting round / EM iteration** sized to the
+  register budget and chained through wire values, so `rounds:` and
+  `iters:` are unbounded by the register file — the exact cap that
+  stopped the hand script at 4 EM iterations. Every full-shape constant
+  is derived in-flow by the `ones_like` idiom (`x x ==` then
+  `scalar_mul`), which is also what fits an EM iteration in **5** MNPK
+  params. Second return: `xgboost` = scale-q MSE of the final
+  probabilities; `hmm` = `score`, the final mean scale factor c̄
+  (monotone non-decreasing under EM — a fit-quality trace, one `log` op
+  short of the true log-likelihood, so not one). Routing economics,
+  measured on the live 2-worker fleet: a routed chain LOSES (~40× for
+  xgboost — boosting rounds are hard sequential barriers; no crossover
+  for hmm at any batch size — bark is ~6× slower per unit work), so
+  train local-first and use `@device` + `--verify` for correctness
+  proofs or to free the coordinator; the parallelism that pays today is
+  the **sweep**. Labels: `hmm` fits unsupervised and does NOT align
+  state labels — EM is identifiable only up to a permutation, and
+  `ml_predict` returns the fitted labeling.
+- **Tier B — native, coordinator-only**: `kmeans` (+`k`, `iters`), `knn`
+  (+`k`), `naive_bayes`, `decision_tree` (+`max_depth`, `min_samples`),
+  `isolation_forest` (+`trees`, `max_depth`, `seed` — a private seedable
+  splitmix64, bit-identical everywhere). These train through the `ml_fit` op, which has
+  no wire opcode, so `@device` on them is refused honestly. `kmeans`,
+  `knn` and `naive_bayes` accept `standardize` too, but here it defaults
+  to **false** (Tier A defaults to true — the GD numerics need it; a
+  distance or count model merely benefits). `pca` is reserved and
+  refuses: `eigendecomp` has no evaluator yet.
+
+A fitted model is one rank-1 integer descriptor vector (magic, version,
+algorithm, `quantres`, feature count, flags, payload) — it prints, ships
+over MNPK, and persists via the `model("path.mnm")` file format (raw
+little-endian int64 slots + checksum, never quantizer-encoded). Inference
+is the `ml_predict` op:
+
+```mnd
+in::model = model("house.mnm");
+in::Xn    = csv("new.csv");
+
+calc::lambda_flow run(model, Xn) {
+    model Xn ml_predict yhat =
+} return yhat;
+```
+
+`ml_predict` applies the model's recorded standardization, refuses a
+`quantres` mismatch, and returns: scale-q predictions (linear), scale-q
+probabilities (logistic), ±1·10^q classes (svm), cluster indices (kmeans),
+the stored labels (knn / naive_bayes / decision_tree), scale-q expected
+path lengths, lower = more anomalous (isolation_forest), scale-q
+probabilities from the native tree walk (xgboost — descend `depth` levels
+on `x ≤ threshold`, sum the eta-shrunk leaf logits, sigmoid), or the
+posterior-decoded state indices `[sequences, steps]`, raw `0..K−1`
+(hmm — a native scaled forward-backward whose truncating arithmetic
+mirrors the fit flows step for step, so decoding the training data
+reproduces the in-graph decode exactly; the step count is free at predict
+time).
+
+Defaults, when a key is omitted: `iters: 200`, `lr: 10^quantres / 20`
+(0.05 real, floored at 1), `l2: 0`, `fit_intercept: true`,
+`standardize: true` (Tier A) / `false` (Tier B), `k: 3`, `iters: 20`
+(kmeans), `max_depth: 8` and `min_samples: 2` (tree), `trees: 50`,
+`max_depth: 10` and `seed: 42` (forest); `rounds: 8`, `depth: 3`,
+`bins: 8`, `eta: 0.3·10^q`, `l2: 10^q`, `min_child_hess: 0.75·10^q`
+(xgboost); `states: 2`, `iters: 4`, `seed: 0` (hmm). `{}` is a legal
+block — all defaults (except the required keys: `features` for the GD
+family and xgboost; `symbols` and `steps` for hmm).
+
+Two integer-GD facts worth internalizing: `lr` scales the **summed**
+gradient (there is no 1/n), so larger datasets want a smaller `lr`; and
+below ~`10^-quantres` of gradient resolution the update rounds to zero and
+training stalls — `standardize: true` (the default) plus the reported
+`loss` are the guard rails.
 
 ## 10. Decorators and object parameters
 

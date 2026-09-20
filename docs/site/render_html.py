@@ -75,6 +75,17 @@ PAGES = [
     ("Getting started", "site/under-the-hood.md",
      "under-the-hood.html", "How Maned runs your program"),
 
+    # The ML pages are written FOR the site (site/*.md) rather than lifted
+    # from the workspace chapters: the workspace's calc::ml:: reference lives
+    # inside 12_MANED_LANGUAGE_GUIDE.md section 9.4 and is written for someone
+    # who already knows the language. These teach it, and every code block and
+    # output in them is copied from a tutorial script in mnd_scripts/tutorials/
+    # that was run to produce it.
+    ("Machine learning", "site/machine-learning.md",
+     "guides/machine-learning.html", "The calc::ml:: algorithms"),
+    ("Machine learning", "site/ml-parallel.md",
+     "guides/ml-parallel.html", "Training across Bark devices"),
+
     ("Going further", "language/15_REMOTE_WORKER_GUIDE.md",
      "guides/remote-workers.html", "Remote workers"),
     ("Going further", "language/16_DIAGNOSTICS.md",

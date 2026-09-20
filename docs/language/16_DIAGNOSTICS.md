@@ -36,6 +36,8 @@ working notes; where they disagree with this one, this one is right.
 | `E018` | The script's output is a profile, not a tensor: it can be served but not printed by a plain `maned-run`. Emitted by `maned-run`, not the linter. |
 | `E019` | `repeat` takes one integer count: `repeat(8):`. |
 | `E020` | `mnd::checkpoint_every` is parsed but consumed by nothing. Gradient checkpointing tunes a backward pass; there is no autodiff phase to checkpoint. Reserved alongside `mnd::backpropagation` (E015). |
+| `E021` | `calc::ml::` names an unknown algorithm (or lacks one). The set is closed: `linear_regression`, `logistic_regression`, `svm`, `kmeans`, `knn`, `naive_bayes`, `decision_tree`, `isolation_forest`, `pca`, `xgboost`, `hmm`. |
+| `E022` | A malformed `calc::ml::` definition: the hyperparameter block takes `key: value` pairs (integers in the scaled domain, `true`/`false`, or a flat `[v, v, ...]` sweep list — floats are refused, they would silently truncate), and the definition needs a return clause (`} return model;` or `} return model, loss;`). |
 
 `WPARSE` is separate and unnumbered: a parser *warning* (as opposed to an
 error), printed by `maned-lint`.

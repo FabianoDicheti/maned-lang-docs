@@ -555,3 +555,69 @@ tool that resolves a named binding.
    kind declares the execution modes that can load it; a mode that cannot
    REFUSES with E018 naming the supported modes. `profiles()` is
    serve-only today.
+
+## 15. Supervised learning: `calc::ml::` (ML_PLAN, decided 2026-09-20)
+
+A `calc::ml::<algorithm>` definition is a `top_level_item` parallel to
+`lambda_flow`. Its trailing brace holds **hyperparameters** — `key: value`
+object fields, never RPN statements — which is what syntactically
+distinguishes it from a flow body. The algorithm set is closed (E021):
+`linear_regression`, `logistic_regression`, `svm`, `kmeans`, `knn`,
+`naive_bayes`, `decision_tree`, `isolation_forest`, `pca` (reserved,
+refuses — no eigensolver exists yet), `xgboost` and `hmm`
+(ML_PLAN_XGB_HMM, 2026-09-20 — both desugar to wire-legal primitives:
+gradient-boosted trees as histogram matmuls, Baum-Welch as batched
+forward-backward matmuls; `xgboost` takes `(X, y)`, `hmm` takes the
+single `[sequences, steps]` observation matrix `O`).
+
+```maned
+mnd::quantmax=100;
+mnd::quantmin=-100;
+mnd::quantres=2;
+
+in::X = csv("train_x.csv");
+in::y = csv("train_y.csv");
+
+calc::ml::linear_regression fit(X, y) {
+    iters: 200,
+    lr: 5,
+    features: 2,
+    fit_intercept: true,
+    standardize: true
+} return model, loss;
+
+out::model = model("house.mnm");
+```
+
+Decisions:
+
+1. **Hyperparameter values are scaled integers, `true`/`false`, or a flat
+   `[v, v, ...]` sweep list.** Floats are refused (E022): every number in
+   the language is a scaled integer, and a silently truncated `0.05` is
+   the exact failure the quantization review documented. A sweep list
+   fans one configuration per value across the `@device(a, b, c)`
+   aliases (`i mod N`), and the return clause names one output set per
+   configuration.
+2. **The construct never reaches IR lowering.** It desugars — before
+   inlining and flow segmentation — into ordinary flows: a local init
+   flow, gradient-descent round flows chained through `#`/`$` wire names
+   (the segment_flows convention), and a local epilogue that keeps the
+   declared name and return list. The gradient-descent family emits only
+   wire-legal ops, so `@device` routing and `--verify` apply unchanged;
+   the other algorithms train through the coordinator-only `ml_fit` op
+   and refuse `@device` honestly.
+3. **`features: <d>` is required for the gradient-descent family.**
+   Input shapes are dynamic at compile time (csv arrives at run time);
+   β₀, the divisor tensors and the int32-overflow refusal all need the
+   feature count at desugar time.
+4. **A fitted model is one rank-1 integer descriptor vector** (magic
+   `0x4D4E444D`, version, algo_id, quantres, feature count, flags,
+   payload), persisted by the fifth file format `model("path.mnm")` — a
+   length-prefixed little-endian int64 dump plus an FNV-1a checksum,
+   deliberately not the MNPK envelope and never quantizer-encoded.
+   `model` is a CONTEXTUAL word like `csv`: it stays a legal value name,
+   which the construct's own `return model, loss;` depends on.
+5. **Inference is the `ml_predict` primitive** (model, X → predictions),
+   coordinator-only by design; it applies the model's recorded
+   standardization and refuses a `quantres` mismatch rather than
+   decoding garbage.

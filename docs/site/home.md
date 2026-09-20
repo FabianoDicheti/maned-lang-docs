@@ -81,6 +81,8 @@ compares the results exactly, so the claim is checkable rather than asserted.
 |---|---|
 | Install the toolchain in one command | [Install](install.html) |
 | Learn the language and its RPN model | [Language guide](guides/language.html) |
+| Train a model — the ten `calc::ml::` algorithms | [Machine learning](guides/machine-learning.html) |
+| Spread training across workers | [Training across Bark devices](guides/ml-parallel.html) |
 | Understand what happens when you hit enter | [How Maned runs your program](under-the-hood.html) |
 | Offload flows to workers, or run the Bark VM | [Remote workers](guides/remote-workers.html) |
 | Look up an error or warning code | [Diagnostics reference](guides/diagnostics.html) |
@@ -100,12 +102,9 @@ compares the results exactly, so the claim is checkable rather than asserted.
 
 Three references overlap. When they disagree:
 
-1. **The implementation and its tests are the ground truth.** On conflict with
-   every document, the docs carry the bug.
-2. **The [RPN syntax specification](spec/rpn-syntax.html) is normative** — among
-   documents, it wins.
-3. **The [language guide](guides/language.html) is the primary reading entry** —
-   complete but descriptive. It teaches; it does not rule.
+1. **The implementation and its tests are the ground truth.** On conflict with every document, the docs carry the bug.
+2. **The [RPN syntax specification](spec/rpn-syntax.html) is normative** — among documents, it wins.
+3. **The [language guide](guides/language.html) is the primary reading entry** — complete but descriptive. It teaches; it does not rule.
 
 Two of these pages are **drift-checked by tests in both directions**: the
 toolchain must be documented, *and* the docs must not invent codes or
