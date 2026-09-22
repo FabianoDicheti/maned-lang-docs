@@ -85,6 +85,13 @@ PAGES = [
     # equivalent in the array languages a reader is arriving from.
     ("Getting started", "site/properties.md",
      "properties.html", "Properties and profiles"),
+    # lang_084-092: importing float weight files into the integer language.
+    # Written FOR the site: the workspace has the review/plan documents and
+    # the op-table row, but nothing that teaches a user the width choice, the
+    # per-block format, or the pack_rows story. Every code block and output
+    # on the page was produced by a real run.
+    ("Getting started", "site/packed-weights.md",
+     "packed-weights.html", "Packed weights"),
     ("Getting started", "site/under-the-hood.md",
      "under-the-hood.html", "How Maned runs your program"),
     # Written FOR the site from maned-bark/docs/operations/OPERATOR_GUIDE.md,

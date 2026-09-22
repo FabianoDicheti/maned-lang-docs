@@ -365,6 +365,7 @@ Three constraints that only appear once a flow is routed:
 
 ## Next
 
+- [Packed weights](packed-weights.html) — importing float weight files as per-block scaled integers, and multiplying them without ever dequantizing.
 - [Language guide](guides/language.html) — the RPN model, the full op table, flows, clocks and file I/O.
 - [Machine learning](guides/machine-learning.html) — where these primitives are assembled into trainable models.
 - [Remote workers](guides/remote-workers.html) — worked numerical examples over the wire: Markov chain evolution, an HMM forward pass, a Kalman prediction step.

@@ -144,6 +144,14 @@ same program at different speeds.
 every target wraps the same way. `--trap-overflow` turns a wrap into an error
 naming the value, for when you want to find one rather than tolerate it.
 
+**Even the float boundary is deterministic.** The one place floats enter —
+converting a weight file with [`tensor::pack`](packed-weights.html) — runs its
+scale fitting and rounding in pure integer arithmetic on each value's exact
+decimal form, with no dependence on the host's math library. The release gate
+packs a fixture of engineered edge cases (rounding ties, subnormals, values a
+single bit from a boundary) and byte-compares the result across macOS/arm64
+and Linux/x86-64: same bytes, every time, or the gate goes red.
+
 And the claim is checkable rather than asserted:
 
 ```sh

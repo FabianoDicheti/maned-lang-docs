@@ -38,6 +38,7 @@ working notes; where they disagree with this one, this one is right.
 | `E020` | `mnd::checkpoint_every` is parsed but consumed by nothing. Gradient checkpointing tunes a backward pass; there is no autodiff phase to checkpoint. Reserved alongside `mnd::backpropagation` (E015). |
 | `E021` | `calc::ml::` names an unknown algorithm (or lacks one). The set is closed: `linear_regression`, `logistic_regression`, `svm`, `kmeans`, `knn`, `naive_bayes`, `decision_tree`, `isolation_forest`, `pca`, `xgboost`, `hmm`. |
 | `E022` | A malformed `calc::ml::` definition: the hyperparameter block takes `key: value` pairs (integers in the scaled domain, `true`/`false`, or a flat `[v, v, ...]` sweep list — floats are refused, they would silently truncate), and the definition needs a return clause (`} return model;` or `} return model, loss;`). |
+| `E023` | A float literal in a value position (`in::x = 0.5;`, a float tensor-literal element, a float RPN operand). Values are integers at quantres, and these literals used to fall into `strtoll` and silently truncate to their integer part (`0.5` → `0`) — the exact class of loss the language exists to refuse. Write the scaled integer, or route the value through a quantized input file. Decorator params and scalar object params are exempt: `paramInt`'s toward-zero truncation there is separately documented. (lang_090; the `calc::ml::` float refusal is E022.) |
 
 `WPARSE` is separate and unnumbered: a parser *warning* (as opposed to an
 error), printed by `maned-lint`.
