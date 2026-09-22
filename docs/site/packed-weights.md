@@ -1,5 +1,8 @@
 # Packed weights
 
+*Requires Maned 0.2.0 or newer. `maned-run --version` tells you what you have;
+[Install](install.html) covers upgrading.*
+
 Maned is integer-only, and the weight files the ML world ships are float —
 safetensors full of BF16, F16, F32. One global decimal scale cannot bridge
 that gap: real models hold values spanning thirty orders of magnitude, and a
