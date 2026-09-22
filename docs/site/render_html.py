@@ -577,7 +577,9 @@ def page_html(title: str, body: str, toc, current_out: str, source_rel: str) -> 
     <article>
       <h1>{html.escape(title)}</h1>
       {body}
-      <footer class="src">Source: <code>docs/{html.escape(source_rel)}</code></footer>
+      <footer class="src">© 2026 Fabiano Dicheti ·
+        Found a problem on this page?
+        <a href="https://github.com/FabianoDicheti/maned-lang-docs/issues">Open an issue</a></footer>
     </article>
   </main>
   {toc_html}
