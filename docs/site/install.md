@@ -134,14 +134,22 @@ differs.
 ## Editor support
 
 A VS Code extension provides syntax highlighting and a `.mnd` file icon.
-Download `maned-lang-0.2.0.vsix` from the
-[releases page](https://github.com/FabianoDicheti/maned/releases) and:
+Download it and install it by path — these two lines work from any directory:
 
 ```sh
-code --install-extension maned-lang-0.2.0.vsix
+curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.2.0.vsix
+code --install-extension ./maned-lang-0.2.0.vsix
 ```
 
-Or in VS Code: **Extensions** → `…` menu → **Install from VSIX…**
+`code --install-extension` resolves a **relative path against your current
+directory**, not against your downloads folder. If you fetched the `.vsix`
+with a browser instead, give it the real path — for example
+`code --install-extension ~/Downloads/maned-lang-0.2.0.vsix` — or `cd` there
+first. A bare filename that is not in the current directory is what produces
+*no such file or directory*.
+
+Or skip the command line entirely — in VS Code: **Extensions** → `…` menu →
+**Install from VSIX…**
 
 Syntax highlighting works immediately. The **file icon needs one more step**,
 because VS Code file icons come entirely from the active icon theme and an
