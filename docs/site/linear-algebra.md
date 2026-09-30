@@ -192,18 +192,23 @@ row_max  : [2x1] = [3, 6]
 grand    : [1]   = [21]
 ```
 
-> ⚠ **Keep per-axis reductions local for now.** A routed `{axis: k}` reduction is currently *ignored by the worker*, which returns the whole-tensor reduction instead — with no error and no warning.
+These route correctly as of **IR v3** (gap_060). For most of 2026 they did
+not: the coordinator encoded the axis and the worker ignored it, so a routed
+`{axis: k}` reduction returned the whole-tensor reduction instead — with no
+error and no warning. Only `--verify` caught it.
 
-`--verify` is what catches it:
+A worker advertises `"ir": 3` to say it decodes the axis, and the coordinator
+**refuses** to send a per-axis reduction to anything older rather than accept a
+different answer than it asked for:
 
 ```text
-verify: MISMATCH in flow 'rows': output 'rsum' differs:
-  local [2x1] [6, 15] vs remote [1] [21]
+per-axis reductions ('tensor_sum' {axis: ...}) need a worker that decodes the
+axis immediate (IR v3); v1 and v2 workers reduce the whole tensor and would
+return a wrong number - run locally, or dispatch to an IR v3 worker
 ```
 
-Until the worker decodes the axis, either leave a flow containing one unrouted,
-or run `--verify` on it every time. `softmax {axis: k}` is unaffected, and so
-are the bare whole-tensor reductions.
+So a flow that routes at all now routes correctly. If you see that refusal, the
+worker's firmware predates the decode — reflash it, or leave the flow local.
 
 ## Exact integer linear algebra
 

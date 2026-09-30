@@ -433,9 +433,11 @@ When no bark machine is on the network, the same programs run on the
 are bit-identical to hardware by construction (it byte-matches the same
 golden fixtures firmware must match).
 
-The VM ships with the bark worker distribution as a `bark-vm` binary (plus a
-`maned-bark-here` alias); it is not part of the `maned-run` install. Two ways
-to use it:
+The VM ships **inside the Maned toolchain tarballs** as of 0.2.1 — `bark-vm`,
+plus a `maned-bark-here` alias, land in `bin/` next to `maned-run`, so a plain
+install has everything `host = "local"` needs. (Before 0.2.1 it came only with
+the bark worker distribution, and `host = "local"` failed with *cannot spawn
+the Bark VM* on a toolchain-only install.) Two ways to use it:
 
 1. **Interactive** — run `maned-bark-here` in a terminal. You get the
    bark machine console (status faceplate, [R]eboot / [P] setup / [L]og

@@ -209,7 +209,7 @@ warns W011 up front).
 | Shape | `concat`, `reshape`, `split` | yes | yes |
 | Quantization | `quantize`, `dequantize` | — | yes |
 | Shape, local only | `slice` (one index off an axis — the inverse of `concat`) | yes | **no** |
-| Math, local only | `exp`, `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin` (the argmax mirror; same tie rule, lowest index) | yes | **no** |
+| Math, local only | `exp` (domain −16..7.616; refuses above it, see "Table domains" below), `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin` (the argmax mirror; same tie rule, lowest index) | yes | **no** |
 | Linear algebra, local only | `determinant`, `adjugate`; `packed_matmul` (multiplies a tensor by a lang_085 packed weight descriptor loaded with `in:: packed()`, without dequantizing — rescale per block partial, division half to even, so the result is bit-identical on every device and loop order; lang_092 payload widths are 8/16/32/64 — wide partials accumulate in 128-bit — and `tensor::pack` takes `bits=8\|16\|32\|64\|auto` (default 16, `auto` = smallest lossless width per tensor), `pack_all=0\|1` (rank-1 floats are otherwise stored exact I64 at a per-tensor scale), with `tensor::profile` printing the per-width pack preview and recommendation); `pack_rows` (lang_087: packs an int64 activation tensor `[M, K]` into the same descriptor form, `{bits: 8\|16}`, default 8 — the fit is the pinned `rescale_half_even` itself, so it is bit-identical everywhere with no decimal extraction; a packed left operand takes the packed×packed `packed_matmul` path, whose 8/16-bit partials fit int64 by construction — the activation-magnitude refusal does not exist there, and the combined block exponent rescales in ONE half-even rounding through a 128-bit power table, never two chained divisions) | yes | **no** |
 | Profiling, local only | `profile_vector` | yes | **no** |
 | ML, local only | `ml_predict` (runs a fitted model descriptor over new rows), `ml_fit` (the Tier-B native training kernel `calc::ml::` desugars to) — coordinator-only by design: inference is cheap, the parallelism that matters is in training, which the gradient-descent family reaches by desugaring to worker-legal primitives instead | yes | **no** |
@@ -260,12 +260,41 @@ in::f  = 2 2 7 full;           # rows cols value
 in::i  = 3 eye;                # n -> identity
 in::d  = [1, 2, 3] diag;       # vector -> diagonal matrix
 in::r  = 5 range;              # 0..n-1 vector
-in::rd = 4 4 random;           # deterministic pseudo-random fill
+in::rd = 4 4 random;           # deterministic fill, [0, 100); see below
 in::b  = 5 1 1 9 band;         # n lower upper fill
 in::t  = 5 1 2 3 tridiag;      # n sub diag super
 in::sp = [4, 1] from_spectrum; # eigenvalues -> matrix with that spectrum
 in::sy = { rows: 4, cols: 4, symmetric: true } synth;  # properties -> matrix
 ```
+
+**`random` is deterministic, and each call site is its own stream.** There is
+no entropy anywhere: the same program produces the same tensors on every
+machine and every run, which is what `--verify` equality requires. What varies
+is the *call site*.
+
+```maned
+in::w1 = 4 4 random;      # w1 and w2 are DIFFERENT tensors
+in::w2 = 4 4 random;
+```
+
+Before gap_074 they were not. The generator was re-seeded inside the op, so
+`random` was a pure function of shape and every draw of a given shape returned
+the same tensor — `w1 w2 elemwise_sub` was all zeros. If you have scripts that
+initialised weights this way, they were symmetric, and a model built on them
+could not break that symmetry.
+
+Two consequences worth knowing before they surprise you:
+
+- **Renaming changes the draw.** A draw is keyed on where it appears — the
+  input name in `in::` position, the statement's position in the dataflow
+  graph inside a flow, and the flow's own name. Renaming an input or a flow
+  gives you different numbers. That is the price of not carrying state between
+  draws, and not carrying state is what keeps `random` reproducible when flows
+  run concurrently.
+- **There is no global sequence.** Inserting a `random` statement does not
+  shift the draws of the ones after it, because nothing counts calls. Each
+  site is independent.
+
 
 ### Worker-contract limits (the real numbers)
 
@@ -469,6 +498,49 @@ Only the numeric tuning knobs sweep (`lr`, `l2`, `iters`, `k`,
 `eta`, `min_child_hess`); `features`, `fit_intercept`, `standardize`,
 `budget`, `depth`, `bins`, `states`, `symbols`, `steps` and `rows` shape
 the shared expansion and are refused as lists.
+
+#### Reading the fit loss
+
+The return list decides how much the fit reports back. One name per
+configuration gives you the model; each further name adds a number:
+
+| Returns | You get |
+|---|---|
+| `model` | the fitted model only |
+| `model, loss` | …plus the final loss |
+| `model, loss, loss_scale` | …plus the scale the loss is reported at |
+| `model, loss, loss_scale, loss_before` | …plus the loss **before** fitting |
+
+**The loss is reported at scale `2 × quantres`, not `quantres`.** A loss is a
+residual, so it is small by construction and the better the fit the less room
+it has: reported at `quantres = 2` every loss under 0.005 printed as `0`, and
+three different fits were indistinguishable. `2 × quantres` is the loss's
+natural scale rather than headroom invented for the purpose — the squared
+error is already computed there, and was being divided back down only to match
+the data's scale.
+
+Name a third return and that scale arrives as a value, so nothing has to
+assume the rule:
+
+```mnd
+calc::ml::linear_regression fit(X, y) {
+    iters: 400, lr: 5, features: 2
+} return model, loss, loss_scale, loss_before;
+# at quantres=2:  loss = 16, loss_scale = 4, loss_before = 393750
+#                 i.e. 0.0016, reported at 10^4, down from 39.375
+```
+
+**`loss_before` is how you tell a converged fit from a stalled one.** Only the
+final loss is otherwise visible, so a fit that stopped improving immediately
+and one that converged after 400 iterations look identical. If `loss` equals
+`loss_before`, the fit moved nothing.
+
+It also disambiguates a zero. A hinge loss of `0` on separable data is the
+correct answer, not lost resolution — and a non-zero `loss_before` is what
+tells you which of the two you are looking at.
+
+When you sweep, the names repeat per configuration in the same order:
+`return m0, l0, s0, b0, m1, l1, s1, b1;` for two configurations.
 
 The eleven algorithm names are closed (E021 otherwise) and split in two
 tiers:
@@ -694,8 +766,8 @@ a notice (`--no-vm-fallback` disables this). See the
 
 Every op result — locally, on the Bark VM, and on hardware workers — is
 truncated to a 32-bit two's-complement integer: values wrap mod 2^32, they
-never saturate and never error by default. This is a deliberate contract,
-not an artifact: wrapping addition is associative and commutative (sum mod
+never saturate and never error by default (with one exception, below). This is
+a deliberate contract, not an artifact: wrapping addition is associative and commutative (sum mod
 2^32 is an abelian group), which is what lets workers reorder tiled and
 sliced matmuls while staying bit-exact, and what makes `--verify` an exact
 equality check on every machine.
@@ -706,6 +778,25 @@ from a PSD matrix). Bound your operands from the declared quant range
 before deep chains, and rescale an operand when an intermediate can exceed
 ±2^31.
 
+**The one exception: `packed_matmul` refuses instead of wrapping.** Every
+other op wraps because wrapping addition is associative — the answer stays
+correct mod 2^32 no matter how the work is reordered. `packed_matmul`'s
+rescale **divides**, and division does not commute with wrapping: a wrapped
+partial divided by 10^s is not congruent to the truth mod 2^32, it is simply a
+different number. So the kernel bounds `max|X| · |Q|max · block` up front and
+**refuses** past it, rather than returning a value that would be silently
+unrelated to the answer:
+
+```
+packed_matmul: activation magnitude ... is too large for a block partial to
+hold ...; rescale x before the multiply
+```
+
+That refusal is the contract working, not a limitation of it — it is the one
+place where wrapping would break the property the contract exists to provide.
+It is also coordinator-only today: the packed tier has no binary-IR opcode, so
+a worker refuses `packed_matmul` outright.
+
 To find a wrap instead of diagnosing its symptoms, run locally with
 `maned-run script.mnd --trap-overflow`: the first op whose raw result
 leaves int32 fails the run, attributed to the op and the name it binds
@@ -714,6 +805,65 @@ leaves int32 fails the run, attributed to the op and the name it binds
 the Bark VM always wrap, so it is refused together with `--device` or
 `@device` routing, and it never changes values: a run that passes under
 the trap is bit-identical to one without it.
+
+### Rounding: four rules, plus one narrowing
+
+Integer division appears all over the interpreter, and it does **not** round
+the same way everywhere. The last row below is a narrowing rather than a
+rounding, and is listed because it decides the final value just as the other
+four do. The differences are each defensible, none of them is
+inferable from the op name, and until gap_067 only one of them was documented
+anywhere — inside a single cell of the operations table. All are pinned by
+tests; the point of this table is that you should not have to read the source
+to know which one an op uses.
+
+| Rule | Where | Why that rule |
+|---|---|---|
+| **Truncate toward zero** | elementwise `div`; `tensor_mean` (whole-tensor and per-axis) | C++ `/` on integers. The accumulator is i64 and the divide happens *before* the narrowing to i32 — narrowing first would diverge on any sum exceeding int32. |
+| **Half to even** | `packed_matmul`'s rescale, `P / 10^s` | The rescale point of the packed contract: it runs once per block partial, and half-to-even is the only rule that does not accumulate a bias over many blocks. **Every device must do exactly this**, which is why it is the one rounding rule the ops table already named. |
+| **Half away from zero** | `sqrt` | The result is a scaled fixed-point value the caller reads as a decimal, so it rounds the way a person expects a decimal to round. |
+| **Floor** | `isqrt`, and `cnrm_isqrt` in the normalization kernels | `isqrt` is the *integer* square root — floor is its definition, not a rounding choice. It is a different op from `sqrt` on purpose. |
+| **Truncate mod 2⁶⁴** *(narrowing, not rounding)* | the return of `div_pow10_half_even`, the 128-bit widened divide in the packed path | The divide itself rounds half to even, bit-identical to `rescale_half_even` (a test pins the two against each other over a remainder-boundary corpus). What this row names is the `__int128 → int64` return: callers that need the quotient to fit must bound their inputs first. |
+
+Two consequences worth stating outright:
+
+- **`sqrt` and `isqrt` round differently.** They are adjacent ops running the
+  same Newton iteration, and they disagree on the last digit by design: `sqrt`
+  rounds half away from zero, `isqrt` floors. If you want the integer square
+  root, ask for `isqrt`; do not round `sqrt` yourself.
+- **Elementwise `div` by zero yields `0`**, it does not error. That is the
+  interpreter's behaviour today and it is deliberate — a zero divisor in a
+  tensor lane is data, not a program fault, and trapping would make every
+  masked expression unusable. Mask before dividing if zero is meaningful.
+
+### Table domains: where saturation is the answer, and where it is a lie
+
+`sigmoid`, `tanh`, `exp` and `softmax` are evaluated through sampled
+fixed-point lookup tables, each defined on a finite domain. Outside it the
+lookup **saturates to the end entry**. For three of the four that is correct;
+for one it was a silently wrong number until gap_068.
+
+| Op | Domain | Outside it |
+|---|---|---|
+| `sigmoid` | [−16, 16] | saturates — and that **is** the answer: `sigmoid(16)` and `sigmoid(100)` differ by less than one unit of the output scale at every `quantres`. |
+| `tanh` | [−8, 8] | saturates, same argument. |
+| `softmax` | [−16, 0] | unreachable: the kernel subtracts the row max first, so its input is ≤ 0 by construction. |
+| **`exp`** | **[−16, 7.616]** | **above: refuses.** Below: saturates to `0`, which is correct — `exp(−16)` rounds to zero at the table's scale, so saturation converges on the true limit. |
+
+`exp` is the one op in the family whose true value leaves the domain and keeps
+growing, so saturating returns a number that is not merely imprecise but
+unboundedly wrong: before gap_068, `exp(8)`, `exp(20)` and `exp(100)` all
+returned `exp(7.616)`, with no error and no note. It now refuses, naming the
+offending element and the bound — the same choice `sqrt` makes on negative
+input.
+
+**The bound belongs to the table, not to your `quantres`.** The domain stops
+where `exp(r) × 10⁶` stops fitting the `int32` the table is stored in, so it is
+7.616 regardless of the scale you declared. One consequence is worth knowing
+before it surprises you: at `quantres = 0`, `exp 8` refuses even though 2981
+would have fit the register comfortably. A refusal naming the bound was judged
+better than a wrong number; widening the domain by range reduction is recorded
+as a follow-on, not a promise.
 
 ### Reading and writing files (lang_061-064)
 
@@ -740,8 +890,34 @@ out::im = image("copy.png");        # values clamped 0..255, with a note
 are raw bytes 0..255, never scaled. `parquet(...)` reads flat numeric
 columns (Snappy or uncompressed). An `out::` name must be a flow return, an
 `in::` input, or a `frame::` — writing an input back out is the idiom for
-format conversion. `--in name=...` overrides a file-sourced input; lint W009
+format conversion. `--in name=...` overrides a file-sourced input,
+`--out name=PATH` overrides where an `out::` writes; lint W009
 flags two `out::` writing the same path.
+
+**Selecting columns at ingest.** A second string on `csv(...)` reads only the
+columns you name, which is the difference between loading a working set and
+loading a file — and it happens before quantization, so an unselected column
+never occupies a register.
+
+```maned
+in::xy = csv("big.csv", "alpha,gamma");   # by name, needs a header row
+in::ab = csv("big.csv", "1,3");           # by 1-based position
+in::r  = csv("big.csv", "gamma,alpha");   # the SELECTOR's order, not the file's
+```
+
+A selector is a **position** if it is all digits and a **name** otherwise.
+That is the only rule that serves both kinds of file: names need a header row,
+and a headerless file can be addressed no other way. The cost is that a column
+literally named `2` is reached by its position rather than its name.
+
+Anything that cannot be resolved is **refused, naming what was available** —
+an unknown column, a name against a headerless file, or a position past the
+last column. A narrower frame is never produced silently. Omit the second
+string and every column is read, exactly as before.
+
+Column *types* are deliberately not selectable: the language has one global
+integer scale (`mnd::quantres`), so a per-column dtype would have nowhere to
+live.
 
 **What each `out::` format can write depends on what the name refers to**, and
 the two sets are different (gap_010):
@@ -897,21 +1073,33 @@ Matches are sorted into lexicographic path order before reading — the same
 determinism rule `profiles("glob")` follows, so a dataset's row order does not
 depend on the filesystem.
 
-### Reshaping a frame: `cols`, `group`, `merge`, `onehot`
+### Reshaping a frame: `filter`, `cols`, `group`, `merge`, `onehot`
 
 A `frame::` declaration can derive a new table from frames declared above it,
-rather than only from a source. Four verbs:
+rather than only from a source. Five verbs:
 
 ```maned
 frame::f = jsonl("docs.jsonl");
 frame::g = jsonl("labels.jsonl");
 
+frame::warm  = f filter("temp", "gt", 30);     # select ROWS by one column
 frame::small = f cols("rank", "trace");        # project columns, in this order
 frame::tot   = f group("k", "sum", "v");       # one row per distinct k
 frame::both  = f g merge("id");                # inner join on a shared key
 frame::wide  = f onehot("category");           # string column -> indicator columns
 ```
 
+- **`filter(column, comparison, value)`** keeps the rows where the comparison
+  holds. `comparison` is one of `eq`, `ne`, `lt`, `le`, `gt`, `ge`. Compare a
+  numeric column against a number and a string column against a quoted string
+  — the mismatch is refused by name, because a dictionary code and an integer
+  cell are the same type in the buffer and only you know which you meant.
+  String columns accept `eq`/`ne` only: ordering them would order by
+  dictionary insertion, which is not an order anyone asked for.
+  A row whose filter column is **absent is dropped**, including by `ne` — an
+  unknown value cannot be shown to satisfy a predicate, and it is not evidence
+  of difference either. Every surviving row keeps every column and its mask;
+  dropping a column is what `cols` is for.
 - **`cols(...)`** selects columns by name, in the order given.
 - **`group(key, agg, value)`** takes exactly three arguments. `agg` is one of
   `sum`, `mean`, `count`, `min`, `max`. Absent *key* cells skip the row;
@@ -927,7 +1115,8 @@ frame::wide  = f onehot("category");           # string column -> indicator colu
 
 Each verb refuses with the frame's name and the specific problem
 (`frame::tot: group needs (key, agg, value), ...`), so a malformed derivation
-never silently yields an empty table.
+never silently yields an empty table. A `filter` that matches nothing is *not*
+an error — it yields an empty frame that still carries the schema.
 
 Over HTTP the documents can come from the request, and `profiles()` closes
 the loop the arc was built for — profile many matrices, get one feature

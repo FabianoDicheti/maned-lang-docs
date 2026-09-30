@@ -12,7 +12,7 @@ curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh
 ```
 
 That downloads the right build for your machine, verifies its SHA-256 against
-the release manifest, and installs three commands. It never uses `sudo` and
+the release manifest, and installs the commands below. It never uses `sudo` and
 never edits your shell configuration.
 
 Then check it worked:
@@ -22,7 +22,7 @@ maned-run --version
 ```
 
 ```
-maned-run 0.2.0
+maned-run 0.3.0
 build: b6c94fa (aarch64-apple-darwin)
 ```
 
@@ -49,6 +49,8 @@ brew update && brew upgrade maned
 | `maned-run` | run a `.mnd` program, locally or on remote workers |
 | `maned-serve` | serve one `.mnd` script as an HTTP API |
 | `maned-lint` | static checks, with diagnostics an editor can parse |
+| `bark-vm` | the hosted Bark worker, so `host = "local"` runs with no second machine |
+| `maned-bark-here` | the same binary as a foreground worker console |
 
 By default they go to `/usr/local/bin` if you can write there, and
 `~/.local/bin` otherwise.
@@ -57,7 +59,7 @@ By default they go to `/usr/local/bin` if you can write there, and
 
 ```sh
 # install a specific release instead of the latest
-curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --version 0.2.0
+curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --version 0.3.0
 
 # install somewhere else
 curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --prefix ~/tools
@@ -84,8 +86,8 @@ Download a tarball from the
 [releases page](https://github.com/FabianoDicheti/maned/releases), then:
 
 ```sh
-tar -xzf maned-0.2.0-<target>.tar.gz
-cd maned-0.2.0-<target>
+tar -xzf maned-0.3.0-<target>.tar.gz
+cd maned-0.3.0-<target>
 sudo cp bin/* /usr/local/bin/                      # everyone
 mkdir -p ~/.local/bin && cp bin/* ~/.local/bin/    # just you
 ```
@@ -131,20 +133,45 @@ Maned is postfix: no operator precedence and no parentheses. Those two lines
 use the same three values and the same two operators — only the token order
 differs.
 
+## Running a worker on this machine
+
+The install also carries the hosted Bark worker, so you can try the remote
+path with no second machine. A flow routed to `host = "local"` finds it
+automatically — nothing to start:
+
+```mnd
+device::vm1 { host = "local"; }
+
+calc::lambda_flow mm(a, b) @device(vm1) {
+    a b matmul r =
+} return r;
+```
+
+To *watch* the jobs arrive, start the worker console yourself first, in its
+own terminal:
+
+```sh
+maned-bark-here
+```
+
+That is the same binary (`bark-vm`) run as a foreground console: a status
+faceplate, action keys, and a live log of every job the worker executes.
+Leave it running and any `host = "local"` flow connects to it.
+
 ## Editor support
 
 A VS Code extension provides syntax highlighting and a `.mnd` file icon.
 Download it and install it by path — these two lines work from any directory:
 
 ```sh
-curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.2.0.vsix
-code --install-extension ./maned-lang-0.2.0.vsix
+curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.3.0.vsix
+code --install-extension ./maned-lang-0.3.0.vsix
 ```
 
 `code --install-extension` resolves a **relative path against your current
 directory**, not against your downloads folder. If you fetched the `.vsix`
 with a browser instead, give it the real path — for example
-`code --install-extension ~/Downloads/maned-lang-0.2.0.vsix` — or `cd` there
+`code --install-extension ~/Downloads/maned-lang-0.3.0.vsix` — or `cd` there
 first. A bare filename that is not in the current directory is what produces
 *no such file or directory*.
 
