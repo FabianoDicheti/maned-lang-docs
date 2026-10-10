@@ -103,8 +103,8 @@ compares the results exactly, so the claim is checkable rather than asserted.
 | `maned-run` | Run a `.mnd` program — locally, on the local Bark VM, or on remote workers |
 | `maned-serve` | Serve one `.mnd` script as an HTTP API |
 | `maned-lint` | Static checks with editor-parseable diagnostics |
-| `maned-opt` | MLIR pipeline driver (needs an MLIR install; the three above do not) |
-| `mnpk-gen` | Protocol envelope generation and mutation, for wire-protocol testing |
+| `bark-vm` | the hosted Bark worker, so `host = "local"` runs with no second machine |
+| `maned-bark-here` | the same worker as a foreground console, to watch jobs arrive |
 
 ## Which document wins
 
