@@ -22,7 +22,7 @@ maned-run --version
 ```
 
 ```
-maned-run 0.3.0
+maned-run 0.4.0
 build: b6c94fa (aarch64-apple-darwin)
 ```
 
@@ -55,11 +55,16 @@ brew update && brew upgrade maned
 By default they go to `/usr/local/bin` if you can write there, and
 `~/.local/bin` otherwise.
 
+Each release also publishes **`bark-usb.img`**, the bootable image that turns
+a real x86-64 machine into a dedicated worker. It is not installed by this
+installer — [Set up a Bark machine](https://maned-lang.com/bark-machines.html)
+covers downloading, verifying and writing it to a USB stick.
+
 ## Installer options
 
 ```sh
 # install a specific release instead of the latest
-curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --version 0.3.0
+curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --version 0.4.0
 
 # install somewhere else
 curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --prefix ~/tools
@@ -86,8 +91,8 @@ Download a tarball from the
 [releases page](https://github.com/FabianoDicheti/maned/releases), then:
 
 ```sh
-tar -xzf maned-0.3.0-<target>.tar.gz
-cd maned-0.3.0-<target>
+tar -xzf maned-0.4.0-<target>.tar.gz
+cd maned-0.4.0-<target>
 sudo cp bin/* /usr/local/bin/                      # everyone
 mkdir -p ~/.local/bin && cp bin/* ~/.local/bin/    # just you
 ```
@@ -164,14 +169,14 @@ A VS Code extension provides syntax highlighting and a `.mnd` file icon.
 Download it and install it by path — these two lines work from any directory:
 
 ```sh
-curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.3.0.vsix
-code --install-extension ./maned-lang-0.3.0.vsix
+curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.4.0.vsix
+code --install-extension ./maned-lang-0.4.0.vsix
 ```
 
 `code --install-extension` resolves a **relative path against your current
 directory**, not against your downloads folder. If you fetched the `.vsix`
 with a browser instead, give it the real path — for example
-`code --install-extension ~/Downloads/maned-lang-0.3.0.vsix` — or `cd` there
+`code --install-extension ~/Downloads/maned-lang-0.4.0.vsix` — or `cd` there
 first. A bare filename that is not in the current directory is what produces
 *no such file or directory*.
 

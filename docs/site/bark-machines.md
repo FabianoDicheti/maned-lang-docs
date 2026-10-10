@@ -6,28 +6,48 @@ hypervisor, no shell and no ssh: Bark boots from a USB stick or an internal
 disk and *is* the machine. You send it tensor programs over HTTP; it runs them
 and sends results back.
 
-This page takes you from "I have the `bark-usb.img` file" to "my `.mnd` script
-just ran on that laptop". It assumes nothing about the machine except that it
-is x86-64 and you are allowed to reformat it.
+This page takes you from nothing to "my `.mnd` script just ran on that
+laptop". It assumes nothing about the machine except that it is x86-64 and
+you are allowed to reformat it. For the case for doing this at all, read
+[Why Bark](why-bark.html) first.
 
-> Installer downloads are not published yet. Until they are, the image comes
-> from whoever built it for you, and this page starts from the moment you have
-> it on disk.
+## Download the image
+
+Every release publishes the worker image next to the toolchain:
+
+```sh
+curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/bark-usb.img
+```
+
+Verify it against the release manifest before writing it anywhere:
+
+```sh
+curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/SHA256SUMS
+shasum -a 256 -c SHA256SUMS --ignore-missing     # macOS
+sha256sum -c SHA256SUMS --ignore-missing         # Linux
+```
+
+The published image is built in **setup mode**: it carries no credentials,
+and the machine asks for its own alias, user and password at first boot —
+so a downloaded stick is safe to hand to anyone.
+
+![Four steps: download the image, write it to a USB stick, boot the machine, and it serves jobs](assets/img/stick.png "The whole setup is the stick: download, write, boot, done.")
 
 ## What Bark is
 
-- A **bare-metal x86-64 compute worker**, written in freestanding C, with its own drivers, TCP/IP stack, HTTP server and tensor executor.
-- About **191 KiB of kernel**. It boots in roughly **30 ms**.
+- A **bare-metal x86-64 compute worker**: the whole machine becomes a tensor
+  executor with its own network stack — no operating system underneath.
+- It boots in roughly **30 ms**.
 - It speaks one protocol on two ports: **HTTP on 4780** for jobs, **UDP on 4781** for discovery.
 
 ```text
 your laptop                          the machine running Bark
 ───────────                          ────────────────────────
-maned-run  ──HTTP/TCP──►        USB Ethernet ─► TCP ─► HTTP ─► job queue
-  .mnd file                                                        │
-  compiled to MNPK bytes                                    tensor executor
-  sent as a job                                                    │
-            ◄──MNRS bytes──                                    results
+maned-run  ──HTTP/TCP──►        USB Ethernet ─► job queue
+  .mnd file                                          │
+  compiled and                                tensor executor
+  sent as a job                                      │
+            ◄──results──                         results
 ```
 
 And what it is **not**, because these shape everything below:
@@ -35,36 +55,33 @@ And what it is **not**, because these shape everything below:
 - **No operating system to log into.** The VGA screen and four keyboard keys are the entire local interface.
 - **No remote install and no remote reconfiguration.** Provisioning happens at the machine, with a keyboard.
 - **No wireless.** Networking is a USB Ethernet adapter or (under QEMU) a PCI RTL8139. A WiFi-only laptop cannot be a worker without a dongle.
-- **No USB keyboard support.** The console driver is i8042/PS/2, scancode set 1. A built-in laptop keyboard is normally i8042-emulated; a plugged-in USB keyboard is not.
+- **No USB keyboard support.** Only a keyboard the firmware presents as PS/2 works. A built-in laptop keyboard normally qualifies; a plugged-in USB keyboard does not.
 
 ## How it works
 
-**Boot.** GRUB loads the kernel into RAM, and after that the boot medium is
-never touched again. Pull the stick out if you like — the worker keeps running.
+**Boot.** The system loads into RAM, and after that the boot medium is never
+touched again. Pull the stick out if you like — the worker keeps running.
 
-**Identity.** Every worker has an `alias`, a `user` and a `pass`. They come from
-three sources, in this order of precedence: the GRUB command line baked into the
-image, an on-disk record written by a disk install, then an interactive prompt.
-The on-disk record wins over the stick, which is exactly what makes a
-disk-installed machine keep its own credentials no matter which stick you boot.
+**Identity.** Every worker has an `alias`, a `user` and a `pass`. They come
+from three sources, in this order of precedence: credentials baked into the
+image, an on-disk record written by a disk install, then an interactive
+prompt. The on-disk record wins over the stick, which is exactly what makes a
+disk-installed machine keep its own credentials no matter which stick you
+boot.
 
-**Serving.** One main loop: poll the network, advance one job slice, repaint the
-screen, `hlt` until the next interrupt. All packet processing happens on the
-boot processor — **single-context by design**, a hard rule rather than a current
-limitation. Jobs are asynchronous: submit, poll, fetch. Up to **four** queued,
-results read-once with a 300-second expiry.
+**Serving.** Jobs are asynchronous: submit, poll, fetch. Up to **four**
+queued, results read-once with a 300-second expiry. The status endpoint
+answers in under a second even in the middle of a long matrix multiplication.
 
-**Computing.** Programs arrive as a flat instruction stream over int32 tensors.
-Arithmetic wraps mod 2³² deliberately, so results are bit-exact and reproducible
-however the work is split. Long operations suspend and resume, so the status
-endpoint still answers in under a second in the middle of a matmul. Matmul can
-spread its rows across CPU cores; everything else runs on one.
+**Computing.** Tensors are 32-bit integers, and arithmetic wraps mod 2³²
+deliberately — the same rule on every machine — so results are bit-exact and
+reproducible however the work is split across cores or workers.
 
 ## What you need
 
 | | Why |
 |---|---|
-| The `bark-usb.img` file | The image you were given. It boots BIOS/CSM **and** UEFI firmware — one hybrid image, no variants to choose between. |
+| The `bark-usb.img` file | Downloaded and checksum-verified as above. It boots BIOS/CSM **and** UEFI firmware — one hybrid image, no variants to choose between. |
 | A USB stick | Anything that fits the image. Its previous contents are gone. |
 | The target machine | x86-64, with a keyboard the firmware presents as PS/2. Laptops usually qualify; a desktop with only USB ports for the keyboard may not. |
 | **A USB Ethernet adapter** | Not optional on real hardware. An RTL8153-class adapter presenting CDC-ECM is the tested one. |
@@ -92,13 +109,12 @@ sudo dd if=bark-usb.img of=/dev/sdX bs=4M conv=fsync status=progress
 
 Check `N` / `X` twice. `dd` will happily overwrite the wrong disk.
 
-**Treat the stick as a written-down password.** Unless your image was built
-without baked credentials, the worker's password sits in plaintext in
-`/boot/grub/grub.cfg` inside the image, and anyone who mounts the stick on any
-computer can read it. Do not lend an install stick to someone you would not
-give the credentials to, and do not leave one in a machine you walk away from.
-An image built in setup mode carries no credentials at all and asks the machine
-for its own identity at first boot — that is the one to hand over.
+**If your image has baked credentials, treat the stick as a written-down
+password.** The downloaded release image is setup-mode and carries none — but
+an image somebody built *for* a specific machine stores that worker's
+password in readable form on the stick, and anyone who mounts it on any
+computer can read it. Do not lend such a stick to someone you would not give
+the credentials to, and do not leave one in a machine you walk away from.
 
 ## Firmware settings, before you boot
 
@@ -106,8 +122,8 @@ Settle these in the firmware setup screen first. Each one can cost you a trip.
 
 | Setting | Value | Why |
 |---|---|---|
-| Secure Boot | **off** | GRUB and the kernel are unsigned. |
-| SATA mode | **AHCI**, not RAID / Intel RST | In RST mode the controller answers as PCI class `01:04`, Bark's probe looks for `01:06`, and the machine boots with **no disk at all** — no persistence, no install target. |
+| Secure Boot | **off** | The boot loader and system are unsigned. |
+| SATA mode | **AHCI**, not RAID / Intel RST | In RST mode the disk controller is invisible to Bark, and the machine boots with **no disk at all** — no persistence, no install target. |
 | Boot order | **USB first** | Then inserting the stick is always the escape hatch on a machine whose disk install is broken. It costs nothing and there is no in-band way to recover a machine that prefers a broken internal disk. |
 | CSM / legacy boot | on, if the machine offers it | UEFI works and is bench-verified, but CSM is the path with hardware miles on it. |
 
@@ -192,9 +208,9 @@ Check the cable and the switch port.
 
 ## Setting the machine's identity
 
-If your image was built in setup mode, the machine asks for its alias, user and
-password at first boot — nothing was baked in, and that is the safest way to
-receive an image from someone else.
+The downloaded release image is built in setup mode: the machine asks for its
+alias, user and password at first boot — nothing was baked in, and that is the
+safest kind of image to receive from anyone.
 
 Otherwise the image's credentials are in force, and you should change them at
 the machine with `[P]`. Three wrong attempts at the current password lock the
@@ -207,8 +223,8 @@ back on the next boot. That is the first reason to install to disk.
 If a machine's stored password is ever lost, the recovery is a stick whose
 command line carries the bare token `nodisk`: it ignores the on-disk identity
 for that one boot so you can `[P]` a new one. That stick has to be built in
-advance — the boot menu has a zero timeout and there is no GRUB prompt to type
-it at.
+advance — the boot menu has a zero timeout and there is no boot prompt to
+type it at.
 
 ## Stick or disk?
 
@@ -360,7 +376,7 @@ The string on the screen *is* the diagnosis. The ones you can act on:
 |---|---|---|
 | `AHCI: NOT-FOUND` | Firmware is in RAID/RST mode — **or** this machine simply has no AHCI controller, which is normal for NVMe-only | Check the SATA mode first. If it is already AHCI, look for `NVME-DISK:` in the same log |
 | `AHCI: NO-DISK` | The controller was found; no port survived bring-up | Photograph the log — the reason line below it is the real finding |
-| `BOOTDISK: NONE (cannot tell which disk is ours - refusing to guess)` | More than one disk carries Bark | Remove the extra Bark disk. The kernel binds to nothing rather than guess |
+| `BOOTDISK: NONE (cannot tell which disk is ours - refusing to guess)` | More than one disk carries Bark | Remove the extra Bark disk. Bark binds to nothing rather than guess |
 | `system installed · NOT bootable: re-run the install` | The install died before writing LBA 0 | Re-run the install. That is the repair |
 | `this stick carries no system to install` | The image has no install payload | Nothing to do at the machine — you need a different image |
 | `USB-ENUM: no CDC-ECM adapter found` | Dongle absent, on a port that did not enumerate, or in the wrong configuration | Reseat it and try other ports |
@@ -373,7 +389,7 @@ what "USB first in the boot order" is for.
 ## Known limits, stated plainly
 
 - **No wireless.** USB CDC-ECM or (QEMU) PCI RTL8139 only.
-- **No USB keyboard.** PS/2 / i8042 only, and there is no workaround at the machine.
+- **No USB keyboard.** Firmware-presented PS/2 keyboards only, and there is no workaround at the machine.
 - **No remote install.** Provisioning is done at the machine's own screen.
 - **The password is plaintext on the stick**, unless the image was built in setup mode.
 - **No shrinking, moving or resizing** an existing partition, ever.

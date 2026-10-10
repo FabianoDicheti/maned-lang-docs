@@ -210,13 +210,14 @@ warns W011 up front).
 | Quantization | `quantize`, `dequantize` | — | yes |
 | Shape, local only | `slice` (one index off an axis — the inverse of `concat`) | yes | **no** |
 | Math, local only | `exp` (domain −16..7.616; refuses above it, see "Table domains" below), `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin` (the argmax mirror; same tie rule, lowest index) | yes | **no** |
-| Linear algebra, local only | `determinant`, `adjugate`; `packed_matmul` (multiplies a tensor by a lang_085 packed weight descriptor loaded with `in:: packed()`, without dequantizing — rescale per block partial, division half to even, so the result is bit-identical on every device and loop order; lang_092 payload widths are 8/16/32/64 — wide partials accumulate in 128-bit — and `tensor::pack` takes `bits=8\|16\|32\|64\|auto` (default 16, `auto` = smallest lossless width per tensor), `pack_all=0\|1` (rank-1 floats are otherwise stored exact I64 at a per-tensor scale), with `tensor::profile` printing the per-width pack preview and recommendation); `pack_rows` (lang_087: packs an int64 activation tensor `[M, K]` into the same descriptor form, `{bits: 8\|16}`, default 8 — the fit is the pinned `rescale_half_even` itself, so it is bit-identical everywhere with no decimal extraction; a packed left operand takes the packed×packed `packed_matmul` path, whose 8/16-bit partials fit int64 by construction — the activation-magnitude refusal does not exist there, and the combined block exponent rescales in ONE half-even rounding through a 128-bit power table, never two chained divisions) | yes | **no** |
+| Linear algebra | `packed_matmul` (multiplies a tensor by a lang_085 packed weight descriptor loaded with `in:: packed()`, without dequantizing — rescale per block partial, division half to even, so the result is bit-identical on every device and loop order; lang_092 payload widths are 8/16/32/64 — wide partials accumulate in 128-bit — and `tensor::pack` takes `bits=8\|16\|32\|64\|auto` (default 16, `auto` = smallest lossless width per tensor), `pack_all=0\|1` (rank-1 floats are otherwise stored exact I64 at a per-tensor scale), with `tensor::profile` printing the per-width pack preview and recommendation). **lang_089 put it on the wire as opcode `0x44`**, two operands — a plain activation and the descriptor, which needs no new MNPK dtype because since lang_094 a descriptor slot *is* one int32 element, so the whole thing travels as one ordinary rank-1 i32 tensor. One packed operand per instruction: a **packed** left operand stays local-only and refuses by name when routed (follow-on lang_100) | yes | yes |
+| Linear algebra, local only | `determinant`, `adjugate`; `pack_rows` (lang_087: packs an int64 activation tensor `[M, K]` into the same descriptor form, `{bits: 8\|16}`, default 8 — the fit is the pinned `rescale_half_even` itself, so it is bit-identical everywhere with no decimal extraction; a packed left operand takes the packed×packed `packed_matmul` path, whose 8/16-bit partials fit int64 by construction — the activation-magnitude refusal does not exist there, and the combined block exponent rescales in ONE half-even rounding through a 128-bit power table, never two chained divisions. That path has no wire form: see lang_089 above) | yes | **no** |
 | Profiling, local only | `profile_vector` | yes | **no** |
 | ML, local only | `ml_predict` (runs a fitted model descriptor over new rows), `ml_fit` (the Tier-B native training kernel `calc::ml::` desugars to) — coordinator-only by design: inference is cheap, the parallelism that matters is in training, which the gradient-descent family reaches by desugaring to worker-legal primitives instead | yes | **no** |
 | Constructors, host-side | `zeros` `ones` `full` `eye` `diag` `range` `random` `band` `tridiag` `from_spectrum` `synth` | `in::` initializer position | n/a |
 | **Registered, not executable** | `tensor.init` `txt.read` `adaptive_avgpool2d` `cholesky` `clip_gradient` `conv1d` `conv3d` `cross_entropy` `eigendecomp` `embedding_lookup` `fft` `fft2d` `gelu` `get_timestamp` `groupnorm` `ifft` `instancenorm` `inverse` `lu` `multihead_attention` `qr` `s4_layer` `scaled_dot_attention` `selective_scan` `silu` `softplus` `svd` | no — lint warns **W011**, run refuses | no |
 
-As of 2026-09-22 that is 84 registry ops: 31 run both places, 26 run locally
+As of 2026-09-29 that is 84 registry ops: 32 run both places, 25 run locally
 only, and 27 parse and shape-infer but refuse to execute. The counts are not
 decoration — the table is generated from the sets and checked by a drift
 suite, so if an op is added to the registry and nowhere else, this table is
@@ -893,6 +894,62 @@ columns (Snappy or uncompressed). An `out::` name must be a flow return, an
 format conversion. `--in name=...` overrides a file-sourced input,
 `--out name=PATH` overrides where an `out::` writes; lint W009
 flags two `out::` writing the same path.
+
+**Tensor files (`.dqt`).** A dqtensor file (lang_111/112) is the integer-
+native tensor container: every payload value is already a decimal-scaled
+integer at a per-tensor `scale_pow10`, verified end to end (crc32 per tile,
+sha256 per tensor). Both directions take the two-argument shape — a shard
+holds many tensors, so the name is not optional:
+
+```maned
+in::w  = dqt("weights.dqt", "model.layers.0.w");  # exact integer rescale
+out::t = dqt("results.dqt", "model.t");           # written at the program
+out::u = dqt("results.dqt", "model.u");           # quantres, ONE file
+```
+
+Reading never crosses the FP quant boundary: the file's integers are shifted
+EXACTLY to the program `quantres` (multiplying up refuses on int64 overflow,
+E027; dividing down rounds half-even with every inexact division counted in
+a note; a shift beyond ±18 refuses). A refused file — bad magic, corrupt
+tile, checksum mismatch — surfaces as E026 carrying the dqtensor code
+verbatim. On `out::`, every `dqt(...)` directive naming the same path is
+collected into ONE canonical multi-tensor file (so W009 does not apply to
+dqt); two directives exporting the same tensor name refuse with E028.
+`safetensors(...)`/`packed(...)` remain the read-only shard loaders; `.dqt`
+is the export format, and the same file round-trips bit-identically.
+
+**Converting model weights (`tensor::ingestion`).** Ingestion converts a
+file — or a folder tree, recursively — of model weights into maned's
+integer world, at one folder-wide decimal scale (full-precision places +
+`quantres` headroom zeros):
+
+```maned
+tensor::ingestion("llama_f16/", "llama_dqt/", quantres=2, format="dqt");
+```
+
+The named arguments are order-free. `format` picks the output container:
+`"safetensors"` (default — the I64 twin, 2× the float source) or `"dqt"`
+(typically **smaller than the float source**; the notes print a compression
+receipt: source vs I64-equivalent vs `.dqt` bytes, plus the peak in-memory
+payload). Inputs are detected by magic bytes, never extension trust:
+
+- **safetensors** — any float dtype through the exact decimal scan; integer
+  dtypes pass through (scale 0 in dqt output, natural logical width).
+- **`.npy`** — NumPy v1–v3, C-order little-endian numeric dtypes; the one
+  tensor is named after the file's basename. Fortran order, big-endian and
+  object dtypes refuse by name; `.npz` is skipped with the unzip
+  workaround named.
+- **`.gguf`** — llama.cpp models, v2/v3: unquantized tensors
+  (F32/F16/BF16/F64, I8..I64) plus dequantized Q4_0/Q4_1/Q5_0/Q5_1/Q8_0
+  and the Q4_K/Q6_K pair (the `Q4_K_M` family). Dequantization is
+  bit-identical to llama.cpp's own (fixture-pinned against the real ggml
+  code); every dequantized value is an exact binary rational, so the
+  decimal scan loses nothing. Other quant types refuse by name with the
+  `llama-quantize` re-quantize workaround.
+
+Tensor names are mangled to the dqt charset (`[A-Za-z0-9_.+-]`, invalid
+bytes → `_`); a post-mangle collision refuses the file rather than silently
+merging tensors.
 
 **Selecting columns at ingest.** A second string on `csv(...)` reads only the
 columns you name, which is the difference between loading a working set and

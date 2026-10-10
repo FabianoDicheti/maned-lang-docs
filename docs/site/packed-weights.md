@@ -41,6 +41,11 @@ tensor::pack("weights/", "weights_p/", bits=auto);         # -> the block-scaled
 the data actually needs, and — since the per-width preview below — what each
 pack width would do to *your* values before you commit to one.
 
+`tensor::ingestion` also takes `format="dqt"`, which writes the integer-native
+[.dqt container](dqt-tensors.html) instead of the I64 safetensors twin —
+typically smaller than the float source, with a printed receipt. That page
+also covers `.npy` and `.gguf` inputs.
+
 ## The pack format, and choosing a width
 
 `tensor::pack` converts every float tensor to integer payloads plus one signed
@@ -193,6 +198,9 @@ would round twice and drift by one).
 
 ## Next
 
+- [.dqt tensor files](dqt-tensors.html) — the integer-native container:
+  exporting results, verified reads, and converting whole model trees
+  (safetensors, `.npy`, `.gguf`) with a compression receipt.
 - [Linear algebra](linear-algebra.html) — the scale arithmetic these formats
   plug into, and the matmul idioms.
 - [Language guide](guides/language.html) — the full operation table,

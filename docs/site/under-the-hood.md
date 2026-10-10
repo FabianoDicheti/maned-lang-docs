@@ -164,14 +164,11 @@ tolerance to tune.
 
 ## The hardware path
 
-Maned also has an MLIR-based compiler path, which lowers flows toward standard
-MLIR dialects and toward an FPGA-oriented dialect, with a profiling pass that
-inspects matrix multiplications to inform target selection.
-
-This is the route from a `.mnd` flow to generated hardware rather than to a
-running process, and it is relevant to you only if that is where your program
-is heading. It needs a separate tool and an MLIR toolchain; the ordinary
-`maned-run` path does not, and nothing in this page above depends on it.
+Maned also has an experimental MLIR-based compiler path — the intended route
+from a `.mnd` flow to generated hardware rather than to a running process. It
+is **future work**: it needs a separate tool and an MLIR toolchain, nothing in
+the shipped binaries reaches it, and nothing in this page above depends on it.
+[Why Bark](why-bark.html) states where that work stands, plainly.
 
 ## Where the rules are written down
 

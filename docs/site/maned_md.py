@@ -215,10 +215,21 @@ def scan_blocks(text: str):
             items = []
             while i < len(lines):
                 match = _LIST_ITEM.match(lines[i])
-                if not match:
-                    break
-                items.append(match.group(1))
-                i += 1
+                if match:
+                    items.append(match.group(1))
+                    i += 1
+                    continue
+                # Hanging continuation: an indented, non-empty line that is
+                # not itself a bullet belongs to the item above it. Without
+                # this, every wrapped bullet in the corpus split into a
+                # one-line bullet plus an orphan paragraph.
+                cont = lines[i]
+                if items and cont.strip() and cont[:1].isspace() \
+                        and not cont.lstrip().startswith("```"):
+                    items[-1] += " " + cont.strip()
+                    i += 1
+                    continue
+                break
             blocks.append(("list", ordered, items))
             continue
 
