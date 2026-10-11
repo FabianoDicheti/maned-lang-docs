@@ -6,6 +6,8 @@ scripts **in-process** — the same request→response contract as
 and each test suite proves its responses **byte-identical** to what the
 HTTP server returns for the same script and body.*
 
+![A maned wolf having coffee with two snakes and a crab](assets/img/wolf-polyglot.png "Python, Rust and the JVM, one engine between them.")
+
 One script serves all three examples below:
 
 ```mnd
