@@ -48,8 +48,9 @@ y = [[2, 4], [0, 2]]
 
 `mnd.io.scoring(payload)` is sugar over the same call for scripts on
 `mnd.search_path`. A payload key with no matching `in::` is refused the
-same way the HTTP API answers 400 — not silently ignored. A runnable copy
-of this example ships in the repo:
+same way the HTTP API answers 400 — not silently ignored. Runnable copies of
+this example — plus deep dives into file routes (bytes in, output files
+back), exact decimals, and routing to the local Bark VM — ship in
 [manedpy/examples](https://github.com/FabianoDicheti/manedpy/tree/master/examples).
 
 ## Rust — the `maned` crate
@@ -77,10 +78,10 @@ y = shape [2, 2], data [2, 4, 0, 2]
 A non-routed script promotes to `SharedScript` and answers from many
 threads without a lock — and the suite asserts the four-thread answers are
 byte-identical, because that is the kind of claim this language makes.
-An async wrapper rides the `tokio` feature. A runnable copy of this
-example: [maned-rs](https://github.com/FabianoDicheti/maned-rs)
-(`cargo run --example scoring`), with a step-by-step quickstart in its
-README.
+An async wrapper rides the `tokio` feature. Runnable copies in
+[maned-rs](https://github.com/FabianoDicheti/maned-rs): `cargo run
+--example scoring`, plus `files`, `decimals_tokio` and `routed` deep
+dives, with a step-by-step quickstart in the README.
 
 ## Kotlin/JVM — `dev.maned:maned` on Maven Central
 
@@ -114,8 +115,10 @@ y = [[2,4],[0,2]]
 ```
 
 At `quantres > 0`, `result.decimal(name)` hands back exact `BigDecimal`s
-instead of raw integers. A complete runnable project for this example:
-[maned-kotlin/examples/scoring](https://github.com/FabianoDicheti/maned-kotlin/tree/master/examples/scoring).
+instead of raw integers. Complete runnable projects —
+this example and three deep dives (file routes, BigDecimals with
+coroutines, the local Bark VM) — live in
+[maned-kotlin/examples](https://github.com/FabianoDicheti/maned-kotlin/tree/master/examples).
 
 ## What holds across all three
 
