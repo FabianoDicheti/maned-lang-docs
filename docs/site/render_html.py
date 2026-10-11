@@ -262,6 +262,7 @@ PAGE_ICONS = {
     "integration/python.html": "assets/img/icon-python.png",
     "integration/kotlin.html": "assets/img/icon-kotlin.png",
     "integration/rust.html": "assets/img/icon-rust.png",
+    "dqt-tensors.html": "assets/img/icon-dqt.png",
 }
 
 
