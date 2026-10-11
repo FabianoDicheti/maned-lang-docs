@@ -126,6 +126,11 @@ PAGES = [
 
     ("Going further", "language/15_REMOTE_WORKER_GUIDE.md",
      "guides/remote-workers.html", "Remote workers"),
+    # The embedding story: manedpy / maned-rs / maned-kotlin, published to
+    # PyPI, crates.io and Maven Central at engine-aligned versions. Every
+    # output on the page is from a real run of try_bindings/.
+    ("Going further", "site/bindings.md",
+     "bindings.html", "Python, Rust and Kotlin"),
     # The combinator/lambda story. Section 11 of the language guide is a
     # status TABLE (what is implemented, reserved, retracted); this page is
     # the part a reader needs first - that the stack operators ARE the birds,

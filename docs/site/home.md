@@ -91,6 +91,7 @@ compares the results exactly, so the claim is checkable rather than asserted.
 | Turn a spare x86 machine into a worker | [Set up a Bark machine](bark-machines.html) |
 | Understand what happens when you hit enter | [How Maned runs your program](under-the-hood.html) |
 | Offload flows to workers, or run the Bark VM | [Remote workers](guides/remote-workers.html) |
+| Call `.mnd` from Python, Rust or Kotlin, in-process | [Python, Rust and Kotlin](bindings.html) |
 | See why postfix is combinatory logic, and which birds are real | [Lambda calculus and the birds](guides/lambda-calculus.html) |
 | Read short worked programs with their real output | [Postfix basics](examples/rpn-postfix.html) and the rest of the Examples section |
 | Look up an error or warning code | [Diagnostics reference](guides/diagnostics.html) |
