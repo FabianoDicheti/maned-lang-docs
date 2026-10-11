@@ -132,6 +132,8 @@ paths inside the `.mnd`.
 
 ## 6. Exact decimals, with async
 
+![A maned wolf with a crab](assets/img/wolf-rust.png)
+
 At `quantres > 0` the integers carry a decimal scale (`1999` means
 `19.99`), and `result.decimal(name)` hands back the decoded decimal **as a
 string** — never a float. A non-routed script promotes to a

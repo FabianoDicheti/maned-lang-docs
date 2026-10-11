@@ -141,6 +141,8 @@ from the script's directory or use absolute paths inside the `.mnd`.
 
 ## 6. Exact decimals
 
+![A maned wolf with two python snakes](assets/img/wolf-python.png)
+
 At `quantres > 0` the integers carry a decimal scale: `quantres=2` makes
 the integer `1999` mean `19.99`. Division truncates — deliberately, and
 identically on every machine — so there is nothing float-shaped anywhere.

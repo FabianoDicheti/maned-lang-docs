@@ -146,6 +146,8 @@ or pin `workingDir` on the Gradle task.
 
 ## 6. Exact decimals, with coroutines
 
+![A maned wolf having coffee](assets/img/wolf-kotlin.png)
+
 At `quantres > 0` the integers carry a decimal scale (`1999` means
 `19.99`), and `result.decimals(name)` hands back exact `BigDecimal`s —
 never floats. The binding also ships a `runAsync` suspend extension, so a

@@ -255,6 +255,15 @@ UNPUBLISHED = {
 SOURCE_TO_OUTPUT = {src: out for _, src, out, _ in PAGES}
 OUTPUTS = {out for _, _, out, _ in PAGES}
 
+# Small icons rendered inside the page's h1, left of the title - not in the
+# markdown body, where an image is laid out as an illustration. Keyed by
+# output path; assets generated at 120px by tools/build_assets.sh.
+PAGE_ICONS = {
+    "integration/python.html": "assets/img/icon-python.png",
+    "integration/kotlin.html": "assets/img/icon-kotlin.png",
+    "integration/rust.html": "assets/img/icon-rust.png",
+}
+
 
 def png_size(path: Path):
     """(width, height) from a PNG's IHDR, or None.
@@ -438,11 +447,77 @@ def inline(text: str, src: str, where: str, state=None) -> str:
     return text
 
 
-def highlight(source: str) -> str:
-    """Colour a Maned snippet with the shared tokenizer."""
+# ---------------------------------------------------------------------------
+# Highlighting for non-Maned fences. Same token categories - and therefore
+# the same generated tokens.css palette - as the Maned highlighter in
+# maned_md.py; these exist so the Integration pages' Python/Kotlin/Rust/shell
+# blocks are not walls of plain text. Deliberately small: comments, strings,
+# numbers, keywords and annotations buy the readability; nobody is parsing.
+# ---------------------------------------------------------------------------
+
+LANG_TOKEN = {
+    "python": re.compile(
+        r"(?P<comment>#[^\n]*)"
+        r"|(?P<string>(?:[rbfuRBFU]{1,2})?(?:\"\"\"(?:\\.|[^\\])*?\"\"\""
+        r"|'''(?:\\.|[^\\])*?'''"
+        r"|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'))"
+        r"|(?P<number>\b(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?)\b)"
+        r"|(?P<directive>@\w[\w.]*)"
+        r"|(?P<keyword>\b(?:def|return|import|from|as|with|for|in|if|elif"
+        r"|else|try|except|finally|raise|class|lambda|while|pass|and|or|not"
+        r"|is|True|False|None)\b)"
+        r"|(?P<builtin>\b(?:print|open|len|list|dict|range|str|int|type)\b)"
+        r"|(?P<operator>==|!=|<=|>=|->|[=+*/%<>(){}\[\],.:-])"
+    ),
+    "rust": re.compile(
+        r"(?P<comment>//[^\n]*|(?s:/\*.*?\*/))"
+        r"|(?P<string>\"(?:\\.|[^\"\\])*\")"
+        r"|(?P<directive>#!?\[[^\]\n]*\]|\b\w+!)"
+        r"|(?P<number>\b\d[\d_]*(?:\.\d+)?(?:[iu](?:8|16|32|64|size)|f32|f64)?\b)"
+        r"|(?P<keyword>\b(?:fn|let|mut|pub|use|mod|struct|enum|impl|trait"
+        r"|for|in|if|else|match|return|async|await|move|loop|while|const"
+        r"|static|ref|dyn|where|unsafe|type|crate|super|self|Self|as)\b)"
+        r"|(?P<builtin>\b(?:String|Vec|Arc|Box|Result|Option|Ok|Err|Some|None"
+        r"|i8|i16|i32|i64|u8|u16|u32|u64|usize|f32|f64|bool|str)\b)"
+        r"|(?P<operator>::|->|=>|==|!=|<=|>=|&&|\|\||[=&?+*/<>(){}\[\],.;:-])"
+    ),
+    "kotlin": re.compile(
+        r"(?P<comment>//[^\n]*|(?s:/\*.*?\*/))"
+        r"|(?P<string>\"\"\"(?s:.*?)\"\"\"|\"(?:\\.|[^\"\\\n])*\")"
+        r"|(?P<number>\b\d[\d_]*(?:\.\d+)?[fL]?\b)"
+        r"|(?P<directive>@\w+)"
+        r"|(?P<keyword>\b(?:fun|val|var|import|package|class|object|interface"
+        r"|return|if|else|when|for|in|while|suspend|override|data|sealed"
+        r"|null|true|false|is|as)\b)"
+        r"|(?P<builtin>\b(?:println|use|it|to|listOf|mapOf|plugins"
+        r"|repositories|dependencies|implementation|runtimeOnly|application"
+        r"|mavenCentral)\b)"
+        r"|(?P<operator>==|!=|<=|>=|->|\?\.|!!|[=+*/<>(){}\[\],.:-])"
+    ),
+    "sh": re.compile(
+        r"(?P<comment>#[^\n]*)"
+        r"|(?P<string>\"(?:\\.|[^\"\\])*\"|'[^']*')"
+        r"|(?P<directive>\$\{?\w+\}?)"
+        r"|(?P<keyword>\b(?:export|cd|if|then|else|fi|for|do|done|source"
+        r"|until|while)\b)"
+        r"|(?P<builtin>\b(?:pip|pip3|python3|python|cargo|gradle|curl|mkdir"
+        r"|git|gh|sh|brew|tar|cp|ls)\b)"
+        r"|(?P<number>\b\d+\b)"
+        r"|(?P<operator>&&|\|\||[|;<>=\\])"
+    ),
+}
+# One tokenizer per family; the tags authors actually type are aliases.
+LANG_TOKEN["py"] = LANG_TOKEN["python"]
+LANG_TOKEN["rs"] = LANG_TOKEN["rust"]
+LANG_TOKEN["kt"] = LANG_TOKEN["kts"] = LANG_TOKEN["kotlin"]
+LANG_TOKEN["bash"] = LANG_TOKEN["shell"] = LANG_TOKEN["zsh"] = LANG_TOKEN["sh"]
+
+
+def highlight(source: str, token_re=CODE_TOKEN) -> str:
+    """Colour a snippet with the shared tokenizer (Maned by default)."""
     out: list[str] = []
     cursor = 0
-    for match in CODE_TOKEN.finditer(source):
+    for match in token_re.finditer(source):
         if match.start() > cursor:
             out.append(html.escape(source[cursor:match.start()]))
         category = match.lastgroup or "plain"
@@ -502,7 +577,12 @@ def render_blocks(blocks, src: str, extra_state=None):
         elif kind == "code":
             _, lang, body = block
             maned = lang in MANED_FENCE_TAGS or (not lang and looks_like_maned(body))
-            inner = highlight(body) if maned else html.escape(body)
+            if maned:
+                inner = highlight(body)
+            elif lang in LANG_TOKEN:
+                inner = highlight(body, LANG_TOKEN[lang])
+            else:
+                inner = html.escape(body)
             label = lang or ("mnd" if maned else "")
             attr = f' data-lang="{html.escape(label, quote=True)}"' if label else ""
             out.append(f'<pre class="code"{attr}><code>{inner}</code></pre>')
@@ -574,6 +654,17 @@ def nav_html(current_out: str) -> str:
     return "\n".join(parts)
 
 
+def page_icon(current_out: str, prefix: str) -> str:
+    """The h1's leading icon, or nothing - most pages have none."""
+    asset = PAGE_ICONS.get(current_out)
+    if not asset:
+        return ""
+    size = png_size(SITE_DIR / asset)
+    dims = f' width="{size[0]}" height="{size[1]}"' if size else ""
+    return (f'<img class="page-icon" src="{prefix}{asset}" alt=""{dims} '
+            f'decoding="async">')
+
+
 def page_html(title: str, body: str, toc, current_out: str, source_rel: str) -> str:
     depth = current_out.count("/")
     prefix = "../" * depth
@@ -625,7 +716,7 @@ def page_html(title: str, body: str, toc, current_out: str, source_rel: str) -> 
   </aside>
   <main id="content">
     <article>
-      <h1>{html.escape(title)}</h1>
+      <h1>{page_icon(current_out, prefix)}{html.escape(title)}</h1>
       {body}
       <footer class="src">© 2026 Fabiano Dicheti ·
         Found a problem on this page?

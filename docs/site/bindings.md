@@ -9,7 +9,7 @@ body. This page is the map; each language has its own step-by-step guide:
 [Python](integration/python.html), [Kotlin](integration/kotlin.html),
 [Rust](integration/rust.html).*
 
-![A maned wolf having coffee with two snakes and a crab](assets/img/wolf-polyglot.png "Python, the JVM and Rust, one engine between them.")
+![A maned wolf having coffee with two snakes and a crab](assets/img/wolf-polyglot.png)
 
 One script serves every example in this section:
 

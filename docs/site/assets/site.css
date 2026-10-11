@@ -185,6 +185,14 @@ h1 {
   padding-bottom: .6rem;
   border-bottom: 3px solid var(--accent);
 }
+/* A page's h1 may carry a small leading icon (PAGE_ICONS in render_html.py):
+   sized to the cap height, sitting on the text's optical centre. */
+h1 .page-icon {
+  height: 2.2rem;
+  width: auto;
+  vertical-align: -0.42rem;
+  margin-right: .55rem;
+}
 h2 { margin: 2.6rem 0 .8rem; font-size: 1.45rem; }
 h3 { margin: 2rem 0 .6rem; font-size: 1.12rem; }
 h4 { margin: 1.5rem 0 .5rem; font-size: .98rem; color: var(--fg); }
