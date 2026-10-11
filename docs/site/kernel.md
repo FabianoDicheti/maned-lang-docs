@@ -1,4 +1,4 @@
-# Why Bark
+# The kernel
 
 Training and serving models has collapsed, culturally, into one answer: buy a
 GPU. For a large class of real workloads — linear algebra over quantized
@@ -7,11 +7,15 @@ answer buys you floating-point drift, driver stacks, a waiting list and a
 power bill, to accelerate arithmetic that never needed floats in the first
 place.
 
-**Bark** is the other answer. It turns an ordinary x86-64 computer — a retired
-laptop, a thin client, a mini PC from a drawer — into a dedicated compute
-worker. You boot it from a USB stick, it appears on your network, and your
-Maned programs send it tensor work over HTTP. A fleet of them is a parallel
-machine built from hardware you already own.
+Maned's answer is to ship its own kernel. Not a library, and not a service
+running on Linux: an operating system in the original sense of the word — a
+program that owns the whole computer — whose only job is to execute Maned
+tensor programs. Boot an ordinary x86-64 machine — a retired laptop, a thin
+client, a mini PC from a drawer — from a USB stick carrying it, and the
+machine stops being a computer and becomes a dedicated compute worker: it
+appears on your network, and your Maned programs send it tensor work over
+HTTP. That kernel is called **Bark**, and a fleet of Bark machines is a
+parallel computer built from hardware you already own.
 
 This page is the case for doing that. [Set up a Bark machine](bark-machines.html)
 is the how-to.

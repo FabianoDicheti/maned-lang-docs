@@ -73,8 +73,9 @@ PAGES = [
     # The positioning page: what a Bark fleet buys (determinism, commodity
     # hardware, verified speedups) and the honest FPGA future-work story.
     # Benefits and contracts only - no internals, by the same rule that keeps
-    # the maintenance docs out of PAGES entirely.
-    ("Getting started", "site/why-bark.md", "why-bark.html", "Why Bark"),
+    # the maintenance docs out of PAGES entirely. The page introduces the
+    # kernel CONCEPT before the name Bark - hence the label.
+    ("Getting started", "site/kernel.md", "kernel.html", "Kernel"),
     ("Getting started", "language/12_MANED_LANGUAGE_GUIDE.md",
      "guides/language.html", "Language guide"),
     # Written FOR the site: the workspace has the op TABLE (language guide §6)
@@ -124,13 +125,23 @@ PAGES = [
     ("Machine learning", "site/ml-parallel.md",
      "guides/ml-parallel.html", "Training across Bark devices"),
 
+    # The embedding story: manedpy / maned-rs / maned-kotlin, published to
+    # PyPI, crates.io and Maven Central at engine-aligned versions. The
+    # overview keeps its pre-section URL (bindings.html was live and linked
+    # before the section existed); each language page is the step-by-step
+    # guide. Every output on all four pages is from a real run of the
+    # examples shipped in the binding repos.
+    ("Integration", "site/bindings.md",
+     "bindings.html", "Overview"),
+    ("Integration", "site/integration-python.md",
+     "integration/python.html", "Python"),
+    ("Integration", "site/integration-kotlin.md",
+     "integration/kotlin.html", "Kotlin"),
+    ("Integration", "site/integration-rust.md",
+     "integration/rust.html", "Rust"),
+
     ("Going further", "language/15_REMOTE_WORKER_GUIDE.md",
      "guides/remote-workers.html", "Remote workers"),
-    # The embedding story: manedpy / maned-rs / maned-kotlin, published to
-    # PyPI, crates.io and Maven Central at engine-aligned versions. Every
-    # output on the page is from a real run of try_bindings/.
-    ("Going further", "site/bindings.md",
-     "bindings.html", "Python, Rust and Kotlin"),
     # The combinator/lambda story. Section 11 of the language guide is a
     # status TABLE (what is implemented, reserved, retracted); this page is
     # the part a reader needs first - that the stack operators ARE the birds,

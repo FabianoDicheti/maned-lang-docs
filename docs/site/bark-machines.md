@@ -9,7 +9,7 @@ and sends results back.
 This page takes you from nothing to "my `.mnd` script just ran on that
 laptop". It assumes nothing about the machine except that it is x86-64 and
 you are allowed to reformat it. For the case for doing this at all, read
-[Why Bark](why-bark.html) first.
+[The kernel](kernel.html) first.
 
 ## Download the image
 

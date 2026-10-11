@@ -1,14 +1,17 @@
-# Python, Rust and Kotlin
+# Integration
 
-*Bindings at 0.4.x track engine 0.4.0. Each library calls `.mnd`
-scripts **in-process** — the same request→response contract as
-[`maned-serve`](guides/remote-workers.html)'s REST API, minus the socket —
-and each test suite proves its responses **byte-identical** to what the
-HTTP server returns for the same script and body.*
+*Maned embeds. Three libraries — Python, Kotlin and Rust, at 0.4.x
+tracking engine 0.4.0 — call `.mnd` scripts **in-process**: the same
+request→response contract as [`maned-serve`](guides/remote-workers.html)'s
+REST API, minus the socket. Each test suite proves its responses
+**byte-identical** to what the HTTP server returns for the same script and
+body. This page is the map; each language has its own step-by-step guide:
+[Python](integration/python.html), [Kotlin](integration/kotlin.html),
+[Rust](integration/rust.html).*
 
-![A maned wolf having coffee with two snakes and a crab](assets/img/wolf-polyglot.png "Python, Rust and the JVM, one engine between them.")
+![A maned wolf having coffee with two snakes and a crab](assets/img/wolf-polyglot.png "Python, the JVM and Rust, one engine between them.")
 
-One script serves all three examples below:
+One script serves every example in this section:
 
 ```mnd
 mnd::quantmax=30000;
@@ -28,19 +31,18 @@ For `x = [[2,0],[0,2]]` and the script's default `w`, every language gets
 `y = w·x = [[2,4],[0,2]]` — the same integers, bit for bit, as `maned-run`
 and as a Bark worker.
 
-## Python — `manedpy` on PyPI
+## Python
 
 ```sh
 pip install manedpy
 ```
 
-The wheel bundles the Maned embedding library — nothing else to install.
+The wheel bundles the engine library — nothing else to install.
 
 ```python
 from manedpy import maned as mnd
 
-script = mnd.load("scoring.mnd")
-result = script.run({"x": [[2, 0], [0, 2]]})
+result = mnd.load("scoring.mnd").run({"x": [[2, 0], [0, 2]]})
 print("y =", result.outputs["y"])
 ```
 
@@ -48,44 +50,12 @@ print("y =", result.outputs["y"])
 y = [[2, 4], [0, 2]]
 ```
 
-`mnd.io.scoring(payload)` is sugar over the same call for scripts on
-`mnd.search_path`. A payload key with no matching `in::` is refused the
-same way the HTTP API answers 400 — not silently ignored. Runnable copies of
-this example — plus deep dives into file routes (bytes in, output files
-back), exact decimals, and routing to the local Bark VM — ship in
-[manedpy/examples](https://github.com/FabianoDicheti/manedpy/tree/master/examples).
+**[The full Python guide →](integration/python.html)** — project setup,
+payloads and typed errors, file routes, exact decimals, routing to Bark.
+Package on [PyPI](https://pypi.org/project/manedpy/); source at
+[github.com/FabianoDicheti/manedpy](https://github.com/FabianoDicheti/manedpy).
 
-## Rust — the `maned` crate
-
-```sh
-cargo add maned
-```
-
-The crate links `libmaned_c` at build time: install the engine first (the
-library ships in the `maned-capi-0.4.0-<target>.tar.gz` release asset), and
-`build.rs` finds it via `MANED_LIB_DIR`, pkg-config, or the standard
-prefixes — refusing with every searched path named when it cannot.
-
-```rust
-let mut script = maned::load("scoring.mnd")?;
-let result = script.run(&serde_json::json!({"x": [[2, 0], [0, 2]]}))?;
-let y = result.tensor("y")?;
-println!("y = shape {:?}, data {:?}", y.shape, y.data);
-```
-
-```text
-y = shape [2, 2], data [2, 4, 0, 2]
-```
-
-A non-routed script promotes to `SharedScript` and answers from many
-threads without a lock — and the suite asserts the four-thread answers are
-byte-identical, because that is the kind of claim this language makes.
-An async wrapper rides the `tokio` feature. Runnable copies in
-[maned-rs](https://github.com/FabianoDicheti/maned-rs): `cargo run
---example scoring`, plus `files`, `decimals_tokio` and `routed` deep
-dives, with a step-by-step quickstart in the README.
-
-## Kotlin/JVM — `dev.maned:maned` on Maven Central
+## Kotlin/JVM
 
 ```kotlin
 dependencies {
@@ -95,20 +65,14 @@ dependencies {
 ```
 
 The platform classifier jar carries the native library; the binding
-extracts and loads it itself. Two requirements, stated plainly: **JDK 22 or
-newer** (the binding uses the Foreign Function & Memory API, final in 22),
-and the JVM flag every FFM consumer needs:
-
-```text
---enable-native-access=ALL-UNNAMED
-```
+extracts and loads it itself. JDK 22+, plus the
+`--enable-native-access=ALL-UNNAMED` flag every FFM consumer needs.
 
 ```kotlin
 import dev.maned.Maned
 
 Maned.load("scoring.mnd").use { s ->
-    val result = s.run("""{"x": [[2,0],[0,2]]}""")
-    println("y = " + result.outputs["y"])
+    println("y = " + s.run("""{"x": [[2,0],[0,2]]}""").outputs["y"])
 }
 ```
 
@@ -116,29 +80,60 @@ Maned.load("scoring.mnd").use { s ->
 y = [[2,4],[0,2]]
 ```
 
-At `quantres > 0`, `result.decimal(name)` hands back exact `BigDecimal`s
-instead of raw integers. Complete runnable projects —
-this example and three deep dives (file routes, BigDecimals with
-coroutines, the local Bark VM) — live in
-[maned-kotlin/examples](https://github.com/FabianoDicheti/maned-kotlin/tree/master/examples).
+**[The full Kotlin guide →](integration/kotlin.html)** — the Gradle setup,
+exact `BigDecimal`s, coroutines, file routes, routing to Bark. Artifact on
+[Maven Central](https://central.sonatype.com/artifact/dev.maned/maned);
+source at
+[github.com/FabianoDicheti/maned-kotlin](https://github.com/FabianoDicheti/maned-kotlin).
+
+## Rust
+
+```sh
+cargo add maned
+```
+
+The crate links `libmaned_c` at build time: install the engine first (the
+library ships in the `maned-capi-0.4.0-<target>.tar.gz` release asset),
+and `build.rs` finds it via `MANED_LIB_DIR`, pkg-config, or the standard
+prefixes.
+
+```rust
+let mut script = maned::load("scoring.mnd")?;
+let y = script.run(&serde_json::json!({"x": [[2, 0], [0, 2]]}))?.tensor("y")?;
+println!("y = shape {:?}, data {:?}", y.shape, y.data);
+```
+
+```text
+y = shape [2, 2], data [2, 4, 0, 2]
+```
+
+**[The full Rust guide →](integration/rust.html)** — linking and rpath,
+lock-free shared scripts, the `tokio` async feature, file routes, routing
+to Bark. Crates on [crates.io](https://crates.io/crates/maned) (plus
+[maned-sys](https://crates.io/crates/maned-sys)), API docs on
+[docs.rs](https://docs.rs/maned); source at
+[github.com/FabianoDicheti/maned-rs](https://github.com/FabianoDicheti/maned-rs).
 
 ## What holds across all three
 
 - **One contract.** Load a script, send a JSON payload, get the
   `/run.json` document back. What a binding returns is what the HTTP API
-  would have sent — a test gate in each repo, not a convention.
+  would have sent — a test gate in each repo, not a convention. A payload
+  key with no matching `in::` is refused the same way the HTTP API answers
+  400 — not silently ignored.
 - **Routing included.** A script with a `device::` block dispatches to Bark
   workers from inside your process; `host = "local"` spawns the bundled
   local VM exactly as `maned-run` does.
 - **Exact numbers end to end.** Tensors arrive as integers plus the
   script's declared scale; the Kotlin binding hands you exact
-  `BigDecimal`s, Python and Rust hand you the integers and the scale.
+  `BigDecimal`s, Python and Rust hand you the integers, the scale, and the
+  decoded decimal strings.
 
 | | Install | Native library | Platforms |
 |---|---|---|---|
-| Python | `pip install manedpy` | bundled in the wheel | macOS (universal), Linux x86-64 / arm64 |
-| Rust | `cargo add maned` | linked at build from the engine install | macOS, Linux x86-64 / arm64 |
-| Kotlin | `dev.maned:maned:0.4.2` | bundled in the classifier jar | JDK 22+, macOS / Linux x86-64 / arm64 |
+| [Python](integration/python.html) | `pip install manedpy` | bundled in the wheel | macOS (universal), Linux x86-64 / arm64 |
+| [Kotlin](integration/kotlin.html) | `dev.maned:maned:0.4.2` | bundled in the classifier jar | JDK 22+, macOS / Linux x86-64 / arm64 |
+| [Rust](integration/rust.html) | `cargo add maned` | linked at build from the engine install | macOS, Linux x86-64 / arm64 |
 
 Windows is not supported, matching the [toolchain](install.html).
 
@@ -151,8 +146,8 @@ Components grant, and each artifact carries both licence texts.
 
 ## Next
 
-- [Install](install.html) — the engine toolchain the Rust crate builds
-  against.
+- [Python](integration/python.html), [Kotlin](integration/kotlin.html) and
+  [Rust](integration/rust.html) — the step-by-step guides.
 - [Remote workers](guides/remote-workers.html) — the routing these bindings
   inherit.
 - [Language guide](guides/language.html) — the `.mnd` you will be calling.

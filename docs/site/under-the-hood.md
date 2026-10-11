@@ -168,7 +168,7 @@ Maned also has an experimental MLIR-based compiler path — the intended route
 from a `.mnd` flow to generated hardware rather than to a running process. It
 is **future work**: it needs a separate tool and an MLIR toolchain, nothing in
 the shipped binaries reaches it, and nothing in this page above depends on it.
-[Why Bark](why-bark.html) states where that work stands, plainly.
+[The kernel](kernel.html) states where that work stands, plainly.
 
 ## Where the rules are written down
 
