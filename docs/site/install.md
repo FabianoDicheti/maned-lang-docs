@@ -165,45 +165,53 @@ Leave it running and any `host = "local"` flow connects to it.
 
 ## Editor support
 
-A VS Code extension provides syntax highlighting and a `.mnd` file icon.
-Download it and install it by path — these two lines work from any directory:
+A VS Code extension provides syntax highlighting and file icons for `.mnd`
+programs and `.dqt` tensor containers. **The installer above already
+installed it** if the `code` command was on your PATH; nothing more to do.
+
+If it was skipped (no `code` CLI at install time), either enable the CLI —
+in VS Code: Command Palette → **Shell Command: Install 'code' command in
+PATH** — and re-run the installer, or install the `.vsix` by hand. These two
+lines work from any directory (replace the version with the one on the
+[releases page](https://github.com/FabianoDicheti/maned/releases)):
 
 ```sh
-curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.4.0.vsix
-code --install-extension ./maned-lang-0.4.0.vsix
+curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/maned-lang-0.4.1.vsix
+code --install-extension ./maned-lang-0.4.1.vsix
 ```
 
 `code --install-extension` resolves a **relative path against your current
 directory**, not against your downloads folder. If you fetched the `.vsix`
 with a browser instead, give it the real path — for example
-`code --install-extension ~/Downloads/maned-lang-0.4.0.vsix` — or `cd` there
+`code --install-extension ~/Downloads/maned-lang-0.4.1.vsix` — or `cd` there
 first. A bare filename that is not in the current directory is what produces
-*no such file or directory*.
+*no such file or directory*. Or skip the command line entirely — in VS Code:
+**Extensions** → `…` menu → **Install from VSIX…**
 
-Or skip the command line entirely — in VS Code: **Extensions** → `…` menu →
-**Install from VSIX…**
-
-Syntax highlighting works immediately. The **file icon needs one more step**,
+Syntax highlighting works immediately. The **file icons need one more step**,
 because VS Code file icons come entirely from the active icon theme and an
 extension cannot add an entry to a theme it does not own.
 
 If you use Material Icon Theme, add to `settings.json`:
 
 ```jsonc
-"material-icon-theme.files.associations": { "*.mnd": "haskell" }
+"material-icon-theme.files.associations": { "*.mnd": "haskell", "*.dqt": "settings" }
 ```
 
 If you use vscode-icons:
 
 ```jsonc
 "vsicons.associations.files": [
-  { "icon": "haskell", "extensions": ["mnd"], "format": "svg" }
+  { "icon": "haskell", "extensions": ["mnd"], "format": "svg" },
+  { "icon": "config",  "extensions": ["dqt"], "format": "svg" }
 ]
 ```
 
 Alternatively, switch to the bundled theme with **Preferences: File Icon
-Theme** → **Maned Icons**. Be aware that it styles `.mnd` only, so every other
-file loses its icon — the association above is usually the better trade.
+Theme** → **Maned Icons**: `.mnd` files get the maned wolf, `.dqt` files get
+the colored-gears dqtensor mark. Be aware that it styles only those two, so
+every other file loses its icon — the associations above are usually the
+better trade.
 
 ## Supported platforms
 
