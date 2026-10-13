@@ -33,6 +33,8 @@ flow 'layer' outputs:
 result : [2x2] = [6, 8, 10, 0]
 ```
 
+![A video introduction to Maned](https://youtu.be/D2NTskH3B3c "The project in brief, from the author: where Maned came from, the integer-only Bark kernel, and .dqt tensor files.")
+
 ## Install
 
 macOS and Linux, prebuilt. Nothing to compile, no runtime to install first:

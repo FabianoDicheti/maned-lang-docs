@@ -295,6 +295,13 @@ class BuildError(Exception):
 # ---------------------------------------------------------------------------
 
 _IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
+# An image whose target is a YouTube URL renders as an embedded player
+# instead of an <img>. Accepts watch, share (youtu.be) and embed URLs; the
+# page always embeds via the nocookie host regardless of which was written.
+_YOUTUBE = re.compile(
+    r"^https://(?:www\.)?(?:youtube(?:-nocookie)?\.com/(?:watch\?v=|embed/)"
+    r"|youtu\.be/)(?P<id>[\w-]{6,})"
+)
 _LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 _CODE = re.compile(r"`([^`]+)`")
 _BOLD = re.compile(r"\*\*([^*]+)\*\*")
@@ -407,6 +414,26 @@ def inline(text: str, src: str, where: str, state=None) -> str:
     def image(match: re.Match) -> str:
         alt, asset = match.group(1), html.unescape(match.group(2))
         caption = match.group(3)
+
+        # A YouTube target becomes an embedded player, not an illustration:
+        # class "video" keeps it out of the illus float logic, and the iframe
+        # is lazy because the player is never the first paint on a page.
+        video = _YOUTUBE.match(asset)
+        if video:
+            embed = ("https://www.youtube-nocookie.com/embed/"
+                     + video.group("id"))
+            frame = (
+                f'<iframe src="{html.escape(embed, quote=True)}" '
+                f'title="{html.escape(alt, quote=True)}" loading="lazy" '
+                f'allow="accelerometer; clipboard-write; encrypted-media; '
+                f'gyroscope; picture-in-picture; web-share" '
+                f'referrerpolicy="strict-origin-when-cross-origin" '
+                f'allowfullscreen></iframe>'
+            )
+            tail = (f"<figcaption>{html.escape(caption)}</figcaption>"
+                    if caption else "")
+            return f'<figure class="video">{frame}{tail}</figure>'
+
         # Image sources are written site-root-relative, like .html links.
         url = "../" * SOURCE_TO_OUTPUT[src].count("/") + asset
 

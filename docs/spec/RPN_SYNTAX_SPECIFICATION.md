@@ -436,6 +436,26 @@ conv2d idiom; `text` was already a type name). `--in name=...` still
 overrides a file-sourced `in::`. `parquet` is read-only; `out::name =
 parquet(...)` is a targeted parse error.
 
+**`tokens()` (lang_122–124)** segments text on whitespace and interns words
+to dense frequency-ranked ids (0 = pad, never emitted; 1 = `<unk>`; words
+2..32767 — the cap is `packedQlim(16)` so an id stream rides the packed i16
+descriptor verbatim). It is the one file source with a postfix object — the
+integer-only `{max: N}` token-truncation guard — and it is bidirectional:
+
+```
+in::ids    = tokens("doc.txt");                # per-document vocab
+in::capped = tokens("doc.txt") {max: 65536};   # keep at most N tokens
+in::shared = tokens("doc.txt", "shared.mnv");  # frozen sidecar vocab (lang_123)
+in::body   = tokens();                         # value from --in / the request
+
+out::words = tokens("decoded.txt");            # ids -> text (lang_124)
+```
+
+Ids are never quantres-scaled. The vocabulary is coordinator-only: workers
+see ids, text re-materializes at `out::`. A loaded `.mnv` is **frozen**
+(absent words intern as `<unk>`, counted); a corrupt `.mnv` refuses with
+E030; an ambiguous one-string `out::tokens` decode refuses with E031.
+
 ### The quantization boundary
 CSV and Parquet numbers cross the FP<->INT boundary through the program's
 `mnd::` quant directives exactly like literals: `encode(x) =

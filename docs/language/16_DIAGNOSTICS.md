@@ -47,6 +47,12 @@ working notes; where they disagree with this one, this one is right.
 
 | `E028` | An `out::dqt` collection that cannot form one canonical file (lang_112). All `out::dqt` directives naming the same path are collected into ONE write-once canonical `.dqt` (name-sorted, single header) — so two directives exporting the same **tensor name** into one path refuse (each name exists once in a canonical file), as does a tensor name outside the dqt charset `[A-Za-z0-9_.+-]` (1..256 bytes). Same-path collection is why `W009`'s later-write-wins warning deliberately exempts dqt. Exports are written at `scale_pow10` = the program quantres, logical width 64. |
 
+| `E031` | An ambiguous `out::tokens` decode (lang_124). The one-string form (`out::words = tokens("out.txt");`) decodes through the run's vocab registry **iff the program has exactly one `tokens()` source**; zero sources or two-plus distinct id spaces refuse naming the count and the fix — the two-string form (`tokens("out.txt", "which.mnv")`), which also works when the ids arrived via `--in` or a request body. Under maned-serve the sidecar form is the ONLY decode source (request vocabs die with their request), so a one-string `out::tokens` refuses at load. Decode itself never clamps: pad (0) is skipped, `<unk>` (1) renders literally with a counting note, and an id outside the vocab refuses naming index and id — printing wrong words silently is the failure the refusal exists for. |
+
+| `E030` | A `.mnv` vocab sidecar refused at the `tokens()` boundary (lang_123). Names the failed check: cannot open, too short/truncated, bad magic (`MNVFILE1`), checksum mismatch (the **canonical** fnv1a over everything after the tag — a new format uses the correct constant, lang_121), unsupported version, unimplemented delimiter class (1 = ASCII whitespace is the only one; the byte is the non-whitespace extension point), word count beyond the 32767-id cap, corrupt length field, stray trailing bytes. A loaded vocab is **frozen**: words absent from it intern as `<unk>` with a counting note — stable ids are the sidecar's entire point, so growth is a refusal of a different kind (build the vocab from the union document instead). |
+
+| `E029` | A string literal in a value position inside a flow (`"hello" x =`, a string RPN operand, a string argument to a called flow). Strings have no runtime value — they exist as file paths and tensor names in `in::`/`out::`/`device::` position only. Before lang_119 this lowered to a placeholder constant whose `strtoll` parse made it **scalar 0, silently** — the same loss class as `E023`'s float truncation — while the remote path refused the identical node loudly, so local and remote semantics disagreed on the same program. The `return("...")` print form is unaffected: print statements are not lowered. (lang_119) |
+
 `WPARSE` is separate and unnumbered: a parser *warning* (as opposed to an
 error), printed by `maned-lint`.
 It carries the parser's own message and location rather than a fixed text, so
@@ -78,6 +84,7 @@ suggestion.
 | `W011` | The flow uses an op with no local evaluator: it executes only on a worker (`@device` or the Bark VM), so a plain local run will refuse. The op-state table in the guide is generated from the same sets this rule reads. |
 | `W012` | A decorator that is registered but not implemented — it parses and is then ignored. |
 | `W013` | The mirror of `W011`: the op runs locally, but the flow is routed with `@device` and no worker implements it, so the job is refused at pre-flight before it is sent. |
+| `W014` | Two or more `tokens()` sources with distinct id spaces (lang_124). Each document frequency-ranks its own vocabulary, so the same word gets different ids in each source — comparing or concatenating the streams is meaningless, and the one-string `out::tokens` decode refuses on the ambiguity (E031). Suppressed only when every source names the SAME `.mnv` sidecar, the one arrangement where the id spaces provably agree. |
 
 ## Allocating a new code
 

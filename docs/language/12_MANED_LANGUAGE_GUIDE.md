@@ -918,6 +918,43 @@ dqt); two directives exporting the same tensor name refuse with E028.
 `safetensors(...)`/`packed(...)` remain the read-only shard loaders; `.dqt`
 is the export format, and the same file round-trips bit-identically.
 
+**Text as tokens (`tokens()`, lang_122-124).** `text()` hands a program raw
+bytes; `tokens()` hands it *words*: the file is segmented on whitespace
+(space, tab, LF, CR — the tokenize_doc oracle's set) in one O(L) pass and
+each word is interned to a dense id. The id plan is load-bearing: **0 = pad**
+(never emitted by the reader; for explicit padding), **1 = `<unk>`**, real
+words **2..32767 frequency-ranked** (most frequent = 2, ties by first
+appearance). The 32767 cap equals `packedQlim(16)`, so an id stream rides
+the packed i16 descriptor verbatim (lang_125) and the program range
+`quantmax=32767, quantmin=-32767` crosses the MNPK wire check as-is. Ids are
+never quantres-scaled (raw side, like `text`/`image`).
+
+```maned
+in::ids    = tokens("doc.txt");                   # per-document vocab
+in::capped = tokens("doc.txt") {max: 65536};      # keep at most N tokens (note)
+in::shared = tokens("doc.txt", "shared.mnv");     # FROZEN sidecar vocab
+in::body   = tokens();                            # value from --in / request
+
+calc::lambda_flow count(ids) {
+    ids 0 > present =
+    present tensor_sum n =
+} return n;
+
+out::words = tokens("out.txt");                   # ids decoded back to text
+```
+
+The vocabulary never leaves the coordinator: workers see ids, and text
+re-materializes only at `out::`. A `.mnv` sidecar (lang_123) makes ids
+stable across documents — load-or-create, and a **loaded vocab is frozen**:
+words absent from it intern as `<unk>` with a counting note (build the vocab
+from the union document when that matters). A corrupt or truncated `.mnv`
+refuses with E030. On `out::`, the one-string form decodes via the run's
+vocab when the program has exactly ONE `tokens()` source (otherwise E031
+names the ambiguity — use the two-string form); pad ids are skipped, `<unk>`
+renders literally with a note, and an id outside the vocab refuses rather
+than print wrong words. Words beyond the 32767-id cap intern as `<unk>`,
+counted in a note.
+
 **Converting model weights (`tensor::ingestion`).** Ingestion converts a
 file — or a folder tree, recursively — of model weights into maned's
 integer world, at one folder-wide decimal scale (full-precision places +

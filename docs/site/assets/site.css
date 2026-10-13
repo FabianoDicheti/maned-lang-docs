@@ -385,6 +385,26 @@ figure.illus figcaption {
   color: var(--fg-muted);
 }
 
+/* A video embed is content, not decoration: it never floats and runs the
+   full measure. aspect-ratio reserves the box before the player loads, for
+   the same no-reflow reason the illustrations carry intrinsic dimensions. */
+figure.video {
+  margin: 1.75rem 0;
+}
+figure.video iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 6px;
+}
+figure.video figcaption {
+  margin-top: .5rem;
+  font-size: .78rem;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
 @media (min-width: 62rem) {
   figure.illus {
     float: right;
