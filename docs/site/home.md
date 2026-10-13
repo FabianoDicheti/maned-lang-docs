@@ -11,6 +11,8 @@ toolchain runs them locally, serves them as an HTTP API, or offloads them to
 remote BARK workers over the CDP wire protocol — with bit-exact, reproducible
 integer results everywhere.
 
+![A video introduction to Maned](https://youtu.be/D2NTskH3B3c "The project in brief, from the author: where Maned came from, the integer-only Bark kernel, and .dqt tensor files.")
+
 ```mnd
 mnd::quantmax = 1000;
 mnd::quantmin = -1000;
@@ -32,8 +34,6 @@ $ maned-run layer.mnd
 flow 'layer' outputs:
 result : [2x2] = [6, 8, 10, 0]
 ```
-
-![A video introduction to Maned](https://youtu.be/D2NTskH3B3c "The project in brief, from the author: where Maned came from, the integer-only Bark kernel, and .dqt tensor files.")
 
 ## Install
 

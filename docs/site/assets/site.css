@@ -389,6 +389,9 @@ figure.illus figcaption {
    full measure. aspect-ratio reserves the box before the player loads, for
    the same no-reflow reason the illustrations carry intrinsic dimensions. */
 figure.video {
+  /* Clears the floated hero for the same reason pre.code does: a 16:9 player
+     squeezed into the gap beside a 22rem illustration is unwatchable. */
+  clear: right;
   margin: 1.75rem 0;
 }
 figure.video iframe {
