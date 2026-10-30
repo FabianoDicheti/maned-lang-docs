@@ -24,6 +24,7 @@ source.
 | `docs/site/render_html.py` | The static site generator — standard library only, no dependencies |
 | `docs/site/maned_md.py` | The markdown grammar and Maned syntax highlighter, shared with the PDF build |
 | `docs/site/assets/` | Stylesheet; `tokens.css` is generated at build time from the highlighter's palette |
+| `tutorials/system-one-tutorial/` | The complete project of the [System One tutorial](https://maned-lang.com/tutorial.html): programs, policy, corpus, the shell runbook and the Python, Kotlin and Rust apps, deployable from zero |
 | `.github/workflows/pages.yml` | Builds and deploys on every push to `main` |
 
 ## Building locally

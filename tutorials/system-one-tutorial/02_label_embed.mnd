@@ -1,0 +1,37 @@
+# 02_label_embed.mnd -- label descriptions -> their whitened unit vectors
+#
+# Run by `describe` (_common.sh) or an app the first time a label description is seen. Each line
+# of work/q/new_descs.txt is tokenized here (spm()), embedded on the worker
+# (embed()), then centred, whitened to 256 dims and normalised in int32 -
+# the exact pipeline of ../rag_native/01_ingest.mnd (its header has the scale
+# budget; whitened cosine is what makes XLM-R vectors comparable, raw cosine
+# is not). The unit rows (at 10^-3) are appended to work/labels_u.csv, row i
+# of which is description i of work/descs.tsv. The worker is asked once per
+# description, never again per query.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+device::worker {
+    host = env("S1_WORKER_HOST");   # the worker's address, from the environment like the login
+    port = 4780;
+    user = env("XLM_USER");
+    pass = env("XLM_PASS");
+}
+
+in::v = embed("worker", "work/q/new_descs.txt", "work/sentencepiece.bpe.model");
+in::mean = csv("work/mean.csv");
+in::w = csv("work/whiten.csv");
+in::zcol = 1024 1 zeros;
+in::ok = 256 1 ones;
+in::rk = 1 256 ones;
+
+calc::lambda_flow whiten(v, mean, w, zcol, ok, rk) {
+    v zcol matmul 1 add onesn =
+    v onesn mean matmul sub c =
+    c w transpose matmul 100 div z3 =
+    z3 z3 mul ok matmul isqrt n =
+    z3 1000 scalar_mul n rk matmul div u =
+} return u, n;
+
+out::u = csv("work/q/new_u.csv");

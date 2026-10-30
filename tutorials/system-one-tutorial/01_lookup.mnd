@@ -1,0 +1,247 @@
+# 01_lookup.mnd -- the fast lane: text in, a decision out, from the memory alone
+#
+#   ./01_lookup.sh "the text" urgent later careful      (maned-run: text from work/q/text.txt)
+#   ./07_serve.sh start                                 (maned-serve: text from the request)
+#
+# ONE program for both. spm() tokenizes the text with XLM-R's SentencePiece
+# model - a file under maned-run, the request body under maned-serve and the
+# bindings - and truncates it to 64 ids. Everything after that is integer
+# arithmetic on the memory's counts:
+#
+# 1. FEATURES. A text is its transitions (piece, next piece) and its single
+#    pieces, each hashed into a bucket: bigram (cur*4099 + next) mod 2048,
+#    unigram (piece*4099) mod 2048 + 2048. b [1,4096] counts the text's
+#    features, q how many there are. The "next piece" row is the text shifted
+#    left by one, which is a conv2d with the kernel [0, 1].
+#
+# 2. KNOWN. cov[L] = how many of the text's features were ever seen under
+#    label L; w[L] weighs them by count. The text is known when the best
+#    label covers >= 70% of its features, leads the runner-up by 20% of
+#    them, and the text has >= 3 features: it, or a close variant, was
+#    classified before, and kbest is that answer.
+#
+# 3. THE JUDGE. For every feature, the share of its occurrences under each
+#    candidate label, corrected for label size:
+#        R[f,L] = (counts[f,L] / n_L)  /  sum over candidates of the same,  in permille
+#    (n_L = features seen under L); a feature never seen under any candidate
+#    counts 1000/ncand for each, so a text the memory has little evidence
+#    about stays near uniform instead of looking certain. The text's score
+#    per label is the mean of R over its features, s = b . R, normalised to
+#    a permille p. It is the Markov idiom of the examples: a P matrix of
+#    counts divided by totals, no logarithm anywhere. The policy's `sharpen`
+#    squares and renormalises p 0..3 times, which is what a temperature does
+#    to a softmax; part 7 measures it.
+#
+# 4. THE TIER, from the policy row of the request's risk level (policy.csv:
+#    t_auto, t_verify, t_dispute in permille, sharpen):
+#        tier = (p_best >= t_auto) + (p_best >= t_verify)      2 auto, 1 verify, 0 review
+#    expected = p . ordinal / 1000 for Score questions; t_dispute and
+#    `informed` (30 texts or more in the memory) go to the caller's verifier.
+#
+# Quantres 3: csv inputs land x1000 and are divided back once; spm ids,
+# counts and ranges are raw integers; p and expected are permille.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::msg = spm("work/q/text.txt", "work/sentencepiece.bpe.model") {max: 64};   # [1,T] ids
+in::req = csv("work/q/req.csv");            # [4,32] row 0 candidates 0/1, row 1 ordinal ranks, row 2 risk in column 0
+in::policy = csv("policy.csv");             # [4,4] per risk level: t_auto, t_verify, t_dispute, sharpen
+in::counts = dqt("work/memory.dqt", "counts");   # [4096,32]
+in::ntexts = dqt("work/memory.dqt", "ntexts");   # [1,32]
+in::rb = csv("work/ranges/r4096.csv");      # [1,4096] 0..4095  (00_init_memory.mnd)
+in::r32 = csv("work/ranges/r32.csv");       # [1,32]
+in::r4 = csv("work/ranges/r4.csv");         # [1,4]
+in::k = [[[[0, 1]]]];                        # the shift kernel
+
+# outer_eq(u [M,1], v [1,N]) -> [M,N], 1 where u[i] == v[j]
+calc::lambda_flow outer_eq(u, v) {
+    u 0 scalar_mul 1 add uo =
+    v 0 scalar_mul 1 add vo =
+    u vo matmul lhs =
+    uo v matmul rhs =
+    lhs rhs == m =
+} return m;
+
+# pick(row [1,N], rn [1,N] = 0..N-1, idx [1,1]) -> the one-hot at idx, and row's value there
+calc::lambda_flow pick(row, rn, idx) {
+    rn 0 scalar_mul 1 add o =
+    o idx scalar_mul irow =
+    rn irow == h =
+    h transpose hc =
+    row hc matmul v =
+} return h, v;
+
+# one squaring of a permille row: p -> p*p renormalised to 1000
+calc::lambda_flow sharpen(p, o32, o32c) {
+    p p mul pp =
+    pp o32c matmul ps =
+    ps o32 matmul psb =
+    pp 1000 scalar_mul pp3 =
+    pp3 psb div p2 =
+} return p2;
+
+calc::lambda_flow lookup(msg, req, policy, counts, ntexts, rb, r32, r4, k) {
+    # --- the request
+    req 1000 div rq =
+    r4 transpose r4c =                        # [4,1]
+    r4c 0 == e0 =
+    r4c 1 == e1 =
+    r4c 2 == e2 =
+    r4c 3 == e3 =
+    e0 transpose e0r =
+    e1 transpose e1r =
+    e2 transpose e2r =
+    e0r rq matmul cmask =                     # [1,32] candidates
+    e1r rq matmul ordv =                      # [1,32] ranks (Score questions)
+    e2r rq matmul riskrow =
+    r32 transpose r32c =
+    r32c 0 == f0 =
+    riskrow f0 matmul ridx =                  # [1,1] 0 low, 1 medium, 2 high
+    r4 0 scalar_mul 1 add o4 =
+    ridx o4 matmul rrow =
+    r4 rrow == rsel =                         # [1,4] one-hot of the risk level
+    rsel policy matmul thr =                  # [1,4] the policy row
+    thr e0 matmul t_auto =
+    thr e1 matmul t_verify =
+    thr e2 matmul t_dispute =
+    thr e3 matmul sh1000 =
+    sh1000 1000 div sharp =                   # 0..3 squarings
+
+    # --- the text's features
+    msg k {stride: 1, padding: 0} conv2d nx0 =
+    nx0 {dim0: 1, dim1: -1} reshape nx =      # [1,T-1] the next piece
+    msg 2 > keepu =                          # single pieces: not <s>, <pad>, </s>
+    keepu keepu transpose matmul qu =         # [1,1]
+    qu 0 scalar_mul zero =
+    nx zero {axis: 1} concat nxt =            # [1,T] nxt[j] = msg[j+1], 0 past the end
+    nxt 1 > keep =                            # transitions that end in a piece or </s>
+    keep keep transpose matmul qb =
+    qb qu add q =                             # [1,1] number of features
+    msg 4099 scalar_mul t4 =
+    t4 nxt add hraw =
+    hraw 2048 div hq =
+    hq 2048 scalar_mul hqm =
+    hraw hqm sub h =                          # bigram bucket 0..2047
+    t4 2048 div uq =
+    uq 2048 scalar_mul uqm =
+    t4 uqm sub u0 =
+    u0 2048 add u =                           # unigram bucket 2048..4095
+    h transpose hc =
+    hc rb outer_eq Bb =                       # [T,4096]
+    u transpose uc =
+    uc rb outer_eq Bu =
+    keep Bb matmul bb =
+    keepu Bu matmul bu =
+    bb bu add b =                             # [1,4096]
+
+    # --- shapes used below
+    rb 0 scalar_mul 1 add o4096 =             # [1,4096]
+    o4096 transpose o4096c =                  # [4096,1]
+    r32 0 scalar_mul 1 add o32 =              # [1,32]
+    o32 transpose o32c =                      # [32,1]
+    ntexts o32c matmul total =                # [1,1] texts in the memory
+    total 30 >= informed =
+
+    # --- known text?
+    counts 0 > seen =
+    b seen matmul cov0 =
+    cov0 cmask mul cov =                      # [1,32] features of the text seen under L
+    b counts matmul w0 =
+    w0 cmask mul w =
+    cov 100000 scalar_mul cov5 =
+    cov5 w add kscore =
+    kscore argmax kbest =
+    cov r32 kbest pick hk, cov_best =
+    hk 1000000 scalar_mul knock =
+    cov knock sub cov2 =
+    cov2 argmax ksecond =
+    cov r32 ksecond pick hk2, cov_second =
+    cov_best 10 scalar_mul cb10 =
+    q 7 scalar_mul q7 =
+    cb10 q7 >= c1 =                           # >= 70% covered
+    cov_best cov_second sub kmargin =
+    kmargin 10 scalar_mul km10 =
+    q 2 scalar_mul q2 =
+    km10 q2 >= c2 =                           # leads by >= 20%
+    q 3 >= c3 =
+    c1 c2 mul c12 =
+    c12 c3 mul known =
+
+    # --- the judge
+    o4096 counts matmul n =                   # [1,32] features seen per label
+    counts -1 scalar_mul nc =
+    nc 20000 add d =
+    d relu dr =
+    dr -1 scalar_mul ndr =
+    ndr 20000 add cclip =                     # min(count, 20000): keeps count*1e5 in int32
+    cclip 100000 scalar_mul c5 =
+    o4096c n matmul nb =                      # [4096,32] n_L on every row
+    c5 nb div r =                             # 1e5 * count / n_L   (0 where n_L = 0)
+    o4096c cmask matmul cmb =
+    r cmb mul rc =                            # candidates only
+    rc o32c matmul rs =                       # [4096,1] the feature's mass over the candidates
+    rs o32 matmul rsb =
+    rc 1000 scalar_mul rc3 =
+    rc3 rsb div Rn =                          # [4096,32] permille: P(L | feature) among the candidates
+    rs 0 == unseen =                          # [4096,1] features never seen under any candidate ...
+    cmask o32c matmul ncand =                 # [1,1]
+    ncand 0 scalar_mul 1000 add k1000 =
+    k1000 ncand div ufill =                   # ... count 1000/ncand for every candidate: no evidence,
+    unseen ufill matmul ufcol =               # so a text of mostly unseen features stays near uniform
+    ufcol cmask matmul U =                    # [4096,32]
+    Rn U add R =
+    b R matmul s =                            # [1,32]
+    s o32c matmul ssum =
+    ssum o32 matmul ssb =
+    s 1000 scalar_mul s3 =
+    s3 ssb div p0 =                           # permille over the candidates
+    p0 o32 o32c sharpen p1 =
+    p1 o32 o32c sharpen p2 =
+    p2 o32 o32c sharpen p3 =
+    sharp 0 == is0 =
+    sharp 1 == is1 =
+    sharp 2 == is2 =
+    sharp 3 == is3 =
+    is0 o32 matmul m0 =
+    is1 o32 matmul m1 =
+    is2 o32 matmul m2 =
+    is3 o32 matmul m3 =
+    p0 m0 mul g0 =
+    p1 m1 mul g1 =
+    p2 m2 mul g2 =
+    p3 m3 mul g3 =
+    g0 g1 add g01 =
+    g2 g3 add g23 =
+    g01 g23 add p =                           # the policy's sharpening
+    p argmax best =
+    p r32 best pick hb, p_best =
+    hb 1000000 scalar_mul knockp =
+    p knockp sub pk =
+    pk argmax second =
+    p r32 second pick hb2, p_second =
+    p_best p_second sub margin =
+
+    # --- the tier, and the expected rank for Score questions
+    p_best t_auto >= ga =
+    p_best t_verify >= gv =
+    ga gv add tier =
+    ordv transpose ordc =
+    p ordc matmul expected =                  # permille * rank
+} return best, p_best, margin, tier, expected, known, kbest, cov_best, cov_second, q, t_dispute, informed, p;
+
+# Under maned-run these land in work/q/out/; under maned-serve and the
+# bindings they are the response, the file names are never written.
+out::best = csv("work/q/out/best.csv");
+out::p_best = csv("work/q/out/p_best.csv");
+out::margin = csv("work/q/out/margin.csv");
+out::tier = csv("work/q/out/tier.csv");
+out::expected = csv("work/q/out/expected.csv");
+out::known = csv("work/q/out/known.csv");
+out::kbest = csv("work/q/out/kbest.csv");
+out::cov_best = csv("work/q/out/cov_best.csv");
+out::cov_second = csv("work/q/out/cov_second.csv");
+out::q = csv("work/q/out/q.csv");
+out::t_dispute = csv("work/q/out/t_dispute.csv");
+out::informed = csv("work/q/out/informed.csv");
+out::p = csv("work/q/out/p.csv");
