@@ -20,8 +20,8 @@ device::worker {
 }
 
 in::v = embed("worker", "work/q/new_descs.txt", "work/sentencepiece.bpe.model");
-in::mean = csv("work/mean.csv");
-in::w = csv("work/whiten.csv");
+in::mean = dqt("work/xlm-stats.dqt", "mean");      # [1,1024]  the centering mean
+in::w = dqt("work/xlm-stats.dqt", "whiten");       # [256,1024] the whitening rows
 in::zcol = 1024 1 zeros;
 in::ok = 256 1 ones;
 in::rk = 1 256 ones;

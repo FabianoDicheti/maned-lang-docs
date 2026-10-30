@@ -33,8 +33,8 @@ device::worker {
 in::q = embed("worker", "work/q/text.txt", "work/sentencepiece.bpe.model");
 in::labs = csv("work/labels_u.csv");        # [D,256] unit rows at 10^-3 (`lu` is a reserved op name)
 in::cand = csv("work/q/cand_d.csv");        # [1,D] raw 1/0
-in::mean = csv("work/mean.csv");
-in::w = csv("work/whiten.csv");
+in::mean = dqt("work/xlm-stats.dqt", "mean");      # [1,1024]  the centering mean
+in::w = dqt("work/xlm-stats.dqt", "whiten");       # [256,1024] the whitening rows
 in::ok = 256 1 ones;
 in::rk = 1 256 ones;
 

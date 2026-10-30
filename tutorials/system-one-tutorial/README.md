@@ -21,7 +21,7 @@ computes is a `.mnd` program; the rest is strings, files and processes.
 
 ```sh
 . ~/.config/maned/xlm.env
-./00_download.sh                                   # tokenizer model, statistics, the model as integers
+./00_download.sh                                   # tokenizer model, xlm-stats.dqt, the model as integers
 maned-run 00_provision.mnd                         # once per worker
 mkdir -p work/q/out work/ranges && maned-run 00_init_memory.mnd
 python3 consumers/python/decide.py "Our servers crashed again, customers cannot log in." urgent later careful
@@ -48,7 +48,8 @@ maned-serve 01_lookup.mnd --port 8787 &            # the fast lane as a service
 Generated files live under `work/` and are never committed: the memory
 (`memory.dqt`), the dataset (`memory.tsv`), the label registry
 (`labels.tsv`), the descriptions (`descs.tsv`, `labels_u.csv`), the
-current request (`q/`), the downloads.
+current request (`q/`), the downloads (the tokenizer model, the
+statistics `xlm-stats.dqt`, the model).
 
 ## The apps
 

@@ -5,14 +5,14 @@
 # usage: ./02_xlm_classify.sh "Bitte bis Freitag den Vertrag prüfen" urgent later careful
 #        ./02_xlm_classify.sh "text" spam="unsolicited advertising or a scam" ham="a normal message"
 #
-# needs: work/mean.csv + work/whiten.csv (00_download.sh), the worker (. ~/.config/maned/xlm.env)
+# needs: work/xlm-stats.dqt (00_download.sh), the worker (. ~/.config/maned/xlm.env)
 # does:  registers the labels' descriptions once (02_label_embed.mnd on the
 #        worker: the text after '=', else corpus/labels.tsv's lines for the
 #        name, else the name itself), runs 02_xlm_classify.mnd; prints the
 #        label, the cosine and the time.
 # ============================================================================
 . "$(dirname "$0")/_common.sh"
-need work/whiten.csv "./00_download.sh"
+need work/xlm-stats.dqt "./00_download.sh"
 [ $# -ge 2 ] || { echo "usage: $0 \"text\" label[=description] label..." >&2; exit 1; }
 text=$1; shift
 prep "$text"
