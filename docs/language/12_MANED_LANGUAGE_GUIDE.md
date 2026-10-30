@@ -737,6 +737,24 @@ until a campaign needs it):
 op; it runs in the CLI driver. If the alias did not resolve, the error is
 targeted at that alias (gap_019).
 
+`tensor::provision("alias", "model.dqt" [, force=1] [, slot=K]);` (lang_132)
+is its sibling for a maned-xlm-bark worker: it hashes the `.dqt` (streamed,
+never resident), prints the worker's survey — disk, the BARK DATA partition
+and its slots, or the extent the worker would create — then streams the file
+as `POST /api/provision` with the declared sha256 under a 15-minute budget.
+The worker is the guard: the identical file without `force=1` answers
+`already-provisioned` after receiving the whole body and writes nothing; a
+wrong sha is refused with the disk untouched; `no GPT` / `no free space` are
+409s. Successes print `provision: PASS` or `provision: already-provisioned`;
+every refusal is E036 with the worker's own text. Like `status::`, it runs in
+the driver before any flow, and a script may contain nothing else.
+
+```maned
+device::rex { host = "192.0.2.10"; port = 4780;
+              user = env("XLM_USER"); pass = env("XLM_PASS"); }
+tensor::provision("rex", "models/xlmr-large.int32.dqt");
+```
+
 Script device declarations and flow routing interact with remote discovery and
 dispatch. See the [usage guide](13_MANED_USAGE_GUIDE.md) before attempting
 device execution, then work through the
@@ -954,6 +972,80 @@ names the ambiguity — use the two-string form); pad ids are skipped, `<unk>`
 renders literally with a note, and an id outside the vocab refuses rather
 than print wrong words. Words beyond the 32767-id cap intern as `<unk>`,
 counted in a note.
+
+**SentencePiece tokens (`spm()`, lang_130).** `tokens()` ranks the words of
+*your* document; `spm()` tokenizes with a *model's* vocabulary — the
+SentencePiece Unigram file every XLM-R / fairseq checkpoint ships
+(`sentencepiece.bpe.model`). It is a native transcription of the
+`sentencepiece` package's encoder, byte-identical to it by test: the
+precompiled-charsmap (NFKC-style) normalizer, the dummy prefix and
+whitespace rules, the Viterbi with its tie-break and unk edge, and the merge
+of consecutive `<unk>` pieces. One row per line of the text file, in the
+XLM-R id convention the worker expects (`<s>` 0, piece *i* → *i*+1, `<unk>`
+→ 3, `</s>` 2), truncated to `max−1` + `</s>` (default 512), rows padded
+with 1 (`<pad>`) to `[N, Lmax]`. Ids are never quantres-scaled. The model is
+a sidecar like `.mnv` (not bundled). A model that is not Unigram, uses byte
+fallback, or is malformed refuses with E034.
+
+```maned
+in::ids   = spm("texts.txt", "sentencepiece.bpe.model");             # [N, Lmax]
+in::short = spm("texts.txt", "sentencepiece.bpe.model") {max: 128};  # 2..512
+```
+
+**Embeddings from a worker (`embed()`, lang_131).** A maned-xlm-bark worker
+serves XLM-RoBERTa large over `POST /api/embed`: token ids in, a 1024-int
+vector out. `embed()` is that call as an input source, one request per row,
+resolved through the script's `device::` blocks exactly as `status::` is
+(the `--device` flag selects the flow executor and has nothing to do with
+it). The two-string form takes a file of ids (one comma-separated row per
+line — XLM-R's own vocabulary: `<s>` 0, `</s>` 2, never `<pad>` 1, at most
+512); the three-string form takes a text file and the checkpoint's
+SentencePiece model and tokenizes per line (lang_130). Every reply is
+verified against the sha256 the worker computed over its int32-LE bytes, so
+a row that lands is byte-identical to what the worker produced; the
+`[N,1024]` tensor arrives at the worker's scale (10^-5 for the pinned model)
+and is rescaled to the program quantres with the `in::dqt` rule — set
+`mnd::quantres = 5` and nothing is rounded. Refusals are E035 and quote the
+worker's own error text; `maned-serve` refuses the source as E018 (it has no
+device to call on a request's behalf), and a bundle refuses it (nothing
+self-contained about a live worker).
+
+```maned
+mnd::quantres = 5;
+device::rex { host = "192.0.2.10"; port = 4780;
+              user = env("XLM_USER"); pass = env("XLM_PASS"); }
+
+in::v = embed("rex", "ids.csv");                              # [N,1024]
+in::w = embed("rex", "texts.txt", "sentencepiece.bpe.model");  # lang_130
+
+calc::lambda_flow gram(v) {
+    v v transpose matmul g =
+} return g;
+
+out::g = csv("similarity.csv");
+```
+
+**Converting a model for a kernel (`tensor::quantize`, lang_129).**
+`tensor::ingestion` picks one folder-wide scale and `out::dqt` writes at the
+program quantres with no metadata; a model kernel wants neither — it wants
+*its* scale per tensor and *its* header. `tensor::quantize("recipe.json",
+"out.dqt" [, verify=0|1])` builds exactly that from a recipe: `creator`,
+`user` (the header's `meta.user`, strings), the `source` safetensors (with
+an optional sha256 pin and a `strip_prefix` for `roberta.`-style names),
+`logical_width`, `bound`, and one `{scale, shape}` per tensor — or
+`from: "i32:<path>"` with a sha pin for a table computed elsewhere (the xlm
+kernel's lookup tables). Relative paths resolve against the recipe. The
+rounding law is the quantizer's, verbatim: `v = f × 10^s` in fp64,
+`q = sign(v) · floor(|v| + 0.5)`, and `|q| > bound` **refuses** (E033) —
+never clamps. Tensors stream from the file; the whole int64 payload then
+goes to libdqt's canonical writer (~7 GB peak for XLM-R large, so run it
+alone), the file is read back in verify mode and every tensor's digest
+compared. The notes end with the file's sha256 — for maned-xlm-bark's
+recipe that is `d84e81a8…`, the same bytes `quantize.py` produces.
+
+```maned
+tensor::quantize("quant/recipe.json", "models/xlmr-large.int32.dqt");
+```
 
 **Converting model weights (`tensor::ingestion`).** Ingestion converts a
 file — or a folder tree, recursively — of model weights into maned's

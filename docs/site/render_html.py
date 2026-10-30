@@ -188,6 +188,18 @@ PAGES = [
      "examples/stack-ops.html", "Stack operators"),
     ("Examples", "site/generated/examples/lambda-birds.md",
      "examples/lambda-birds.html", "The combinator birds"),
+
+    # ── Tutorial ────────────────────────────────────────────────────────────
+    # Last in the nav on purpose: one project, start to finish, read after
+    # the reference. A "System One" decision layer - a memory that answers in
+    # 8 ms and learns from an XLM-R worker the reader sets up from a USB
+    # stick - with consumers in three languages. ONE page, ONE GENERATED
+    # file: tools/gen_tutorial_pages.py splices the project files of
+    # mnd_scripts/tutorials/system_one/ and the outputs it captured into the
+    # part templates under site/tutorial-src/ and concatenates them. Edit the
+    # templates or the project, never tutorial.md. Every output on the page
+    # is from a real run of that folder.
+    ("Tutorial", "site/tutorial.md", "tutorial.html", "Build a System One"),
 ]
 
 # Docs that exist in the workspace but are deliberately NOT published. Linking
@@ -258,6 +270,14 @@ OUTPUTS = {out for _, _, out, _ in PAGES}
 # Small icons rendered inside the page's h1, left of the title - not in the
 # markdown body, where an image is laid out as an illustration. Keyed by
 # output path; assets generated at 120px by tools/build_assets.sh.
+# Pages that are a book rather than an article: the whole tutorial on one
+# page. Two layout consequences, both decided here so the markdown stays free
+# of layout hints: every illustration runs the full measure as a block of its
+# own (a diagram that floats beside a 60-line program is unreadable), and the
+# "On this page" list stops at h2 - the parts - since the h3 steps of nine
+# parts would not fit the viewport.
+BOOK_PAGES = {"site/tutorial.md"}
+
 PAGE_ICONS = {
     "integration/python.html": "assets/img/icon-python.png",
     "integration/kotlin.html": "assets/img/icon-kotlin.png",
@@ -651,6 +671,11 @@ def render_blocks(blocks, src: str, extra_state=None):
     # any later one floats beside the prose. Deciding by position keeps the
     # markdown free of layout hints - an author writes ![alt](src) and nothing
     # else.
+    # On a book page (BOOK_PAGES) every figure is a block at the full measure.
+    if src in BOOK_PAGES:
+        body = body.replace('<figure class="illus">', '<figure class="illus wide">')
+        toc = [entry for entry in toc if entry[0] == 2]
+        return body, toc
     first = body.find('<figure class="illus">')
     if first != -1:
         head, tail = body[: first + 1], body[first + 1 :]

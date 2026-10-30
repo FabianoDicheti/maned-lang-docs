@@ -50,7 +50,7 @@ in::a = [[1,2],[3,4]];
 in::b = [[5,6],[7,8]];
 
 device::bob {
-    host = "192.168.100.76";
+    host = "192.0.2.11";
     port = 4780;
     user = "test";
     pass = env("MANED_BOB_PASS");
@@ -383,14 +383,14 @@ List workers:
 
 ```bash
 ./maned-run devices
-./maned-run devices --probe 192.168.100.76:4780 --timeout 1000
+./maned-run devices --probe 192.0.2.11:4780 --timeout 1000
 ```
 
 | Failure | Meaning/action |
 |---|---|
 | `connect_failed` during status | Worker is offline, service stopped, host changed, or network is unavailable. |
 | No worker with alias | Discovery received no matching `alias`; check the worker's advertised name. |
-| Authentication failure | Check user/password/token and environment variables. |
+| Authentication failure | Check user/password/token and environment variables. A `401 AUTH_REQUIRED` on every authenticated route from a worker whose login succeeded used to mean a header-name mismatch: kernels built from bark master match `X-Caramel-Token`, the coordinator sent `X-Maned-Token`. Since lang_128 the coordinator sends both (transitional — removed once rex and bob run kernels rebuilt from a bark that carries the rename). |
 | Unsupported operation | Split the pipeline, use a local flow, or deploy compatible worker support. |
 | Payload too large | Reduce inputs or adapt the worker's advertised limit. |
 | Poll timeout | Inspect worker job state and workload size. |

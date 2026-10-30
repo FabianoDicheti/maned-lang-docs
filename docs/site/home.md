@@ -91,6 +91,7 @@ compares the results exactly, so the claim is checkable rather than asserted.
 | Spread training across workers | [Training across Bark devices](guides/ml-parallel.html) |
 | Meet the kernel — what a fleet of Bark workers buys you, and what it costs | [Kernel](kernel.html) |
 | Turn a spare x86 machine into a worker | [Set up a Bark machine](bark-machines.html) |
+| Build a System One: a decision layer that answers in a millisecond inside your Python, Kotlin or Rust app and learns from an XLM-R worker you set up from a stick | [Tutorial](tutorial.html) |
 | Understand what happens when you hit enter | [How Maned runs your program](under-the-hood.html) |
 | Offload flows to workers, or run the Bark VM | [Remote workers](guides/remote-workers.html) |
 | Call `.mnd` from Python, Kotlin or Rust, in-process | [Integration](bindings.html) |

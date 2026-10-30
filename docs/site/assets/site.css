@@ -421,6 +421,20 @@ figure.video figcaption {
     width: 22rem;
     margin-top: .25rem;
   }
+  /* A book page (render_html.py BOOK_PAGES) shows every diagram as a
+     paragraph of its own at the full measure: nothing floats, nothing is
+     capped at 22rem, the first one included. */
+  article > figure.illus.wide,
+  article > figure.illus.wide:first-of-type {
+    float: none;
+    width: auto;
+    max-width: 100%;
+    margin: 1.75rem 0 2rem;
+  }
+}
+figure.illus.wide {
+  max-width: 100%;
+  margin: 1.75rem 0 2rem;
 }
 
 /* --- Standalone page (--single) ------------------------------------------ */

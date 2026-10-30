@@ -456,6 +456,38 @@ see ids, text re-materializes at `out::`. A loaded `.mnv` is **frozen**
 (absent words intern as `<unk>`, counted); a corrupt `.mnv` refuses with
 E030; an ambiguous one-string `out::tokens` decode refuses with E031.
 
+**`spm()` (lang_130)** tokenizes a text file with a SentencePiece Unigram
+model, one row per line, byte-identical to the `sentencepiece` package, in
+the XLM-R/fairseq id convention (`<s>` 0, piece *i* → *i*+1, `<unk>` → 3,
+`</s>` 2; truncated to `max−1` + `</s>`, default 512; rows padded with 1).
+Two strings (text, model); the optional postfix `{max: N}` is 2..512. `in::`
+only; refusals are E034.
+
+```maned
+in::ids   = spm("texts.txt", "sentencepiece.bpe.model");
+in::short = spm("texts.txt", "sentencepiece.bpe.model") {max: 128};
+```
+
+**`embed()` (lang_131)** is a worker's `POST /api/embed` as an input source:
+the first string is a `device::` alias, the second a file of token-id rows
+(or, with a third string naming the SentencePiece model, a text file
+tokenized per line — lang_130). One request per row; each reply's vector is
+verified against the worker's sha256 over its int32-LE bytes; the `[N,1024]`
+tensor lands at the worker's scale and is rescaled to the program quantres by
+the `in::dqt` rule. `in::` only, `maned-run` only (serve refuses with E018);
+every other refusal is E035 with the worker's text.
+
+```maned
+mnd::quantres = 5;
+device::rex { host = "192.0.2.10"; port = 4780;
+              user = env("XLM_USER"); pass = env("XLM_PASS"); }
+in::v = embed("rex", "ids.csv");
+in::w = embed("rex", "texts.txt", "sentencepiece.bpe.model");
+calc::lambda_flow gram(v) {
+    v v transpose matmul g =
+} return g;
+```
+
 ### The quantization boundary
 CSV and Parquet numbers cross the FP<->INT boundary through the program's
 `mnd::` quant directives exactly like literals: `encode(x) =
