@@ -1,0 +1,36 @@
+en	urgent	Attention: the production server is down and customers cannot log in, please restart it now!
+en	urgent	FYI the payment gateway is rejecting every card since 9am, we are losing orders.
+en	urgent	The database disk is at 99 percent, the service will stop within the hour. Thanks.
+en	urgent	Security alert, an admin password was leaked, rotate all credentials immediately.
+en	later	Our monthly newsletter is out, with team photos from the summer picnic!
+en	later	Hi all, reminder that the office plants get watered on Fridays, volunteers welcome.
+en	later	The cafeteria menu for next month is attached, feedback is optional. Cheers.
+en	later	Photos from the holiday party are now in the shared album, enjoy.
+en	careful	Please review the attached contract amendment, clause 7 changes the liability cap!
+en	careful	Note: the new data retention policy takes effect next month, read the full document before signing.
+en	careful	Your lease renewal includes a rent increase and a new early termination fee, read it carefully. Thanks.
+en	careful	The tax authority sent an audit notice, every figure in the response must be exact!
+pt	urgent	Atenção: o servidor de produção caiu e os clientes não conseguem entrar, reinicie agora!
+pt	urgent	Olá, o gateway de pagamento está recusando todos os cartões desde as 9h, estamos perdendo pedidos.
+pt	urgent	O disco do banco de dados está em 99 por cento, o serviço vai parar em menos de uma hora. Obrigado.
+pt	urgent	Alerta de segurança, uma senha de administrador vazou, troque todas as credenciais imediatamente.
+pt	later	Saiu o boletim mensal, com as fotos da equipe no piquenique de verão!
+pt	later	Pessoal, lembrete de que as plantas do escritório são regadas às sextas, voluntários são bem-vindos.
+pt	later	O cardápio do refeitório do mês que vem está em anexo, comentários são opcionais. Abraços.
+pt	later	As fotos da festa de fim de ano já estão no álbum compartilhado, aproveitem.
+pt	careful	Por favor revise o aditivo contratual em anexo, a cláusula 7 altera o limite de responsabilidade!
+pt	careful	Nota: a nova política de retenção de dados entra em vigor no mês que vem, leia o documento inteiro antes de assinar.
+pt	careful	A renovação do seu aluguel inclui reajuste e uma nova multa por rescisão antecipada, leia com atenção. Obrigado.
+pt	careful	A Receita enviou uma notificação de auditoria, cada número da resposta precisa estar exato!
+de	urgent	Achtung: der Produktionsserver ist ausgefallen und Kunden können sich nicht anmelden, bitte sofort neu starten!
+de	urgent	Hallo, das Zahlungsgateway lehnt seit 9 Uhr jede Karte ab, wir verlieren Bestellungen.
+de	urgent	Die Datenbankfestplatte ist zu 99 Prozent voll, der Dienst steht innerhalb einer Stunde still. Danke.
+de	urgent	Sicherheitswarnung, ein Admin-Passwort ist durchgesickert, alle Zugangsdaten sofort ändern.
+de	later	Unser monatlicher Newsletter ist da, mit Teamfotos vom Sommerpicknick!
+de	later	Hallo zusammen, Erinnerung, dass die Büropflanzen freitags gegossen werden, Freiwillige willkommen.
+de	later	Der Kantinenplan für nächsten Monat ist angehängt, Rückmeldung ist freiwillig. Grüße.
+de	later	Die Fotos von der Weihnachtsfeier sind jetzt im gemeinsamen Album, viel Spaß.
+de	careful	Bitte prüfen Sie den angehängten Vertragsnachtrag, Klausel 7 ändert die Haftungsobergrenze!
+de	careful	Hinweis: die neue Richtlinie zur Datenaufbewahrung gilt ab nächstem Monat, vor der Unterschrift das ganze Dokument lesen.
+de	careful	Ihre Mietverlängerung enthält eine Mieterhöhung und eine neue Gebühr für vorzeitige Kündigung, bitte genau lesen. Danke.
+de	careful	Das Finanzamt hat eine Prüfungsankündigung geschickt, jede Zahl in der Antwort muss exakt stimmen!

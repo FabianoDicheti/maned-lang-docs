@@ -1,0 +1,53 @@
+# 02_xlm_classify.mnd -- the slow lane: which candidate label is the text closest to?
+#
+#   ./02_xlm_classify.sh "the text" urgent later careful
+#
+# Zero-shot classification with the worker's encoder. embed() tokenizes
+# work/q/text.txt with the SentencePiece model, sends the ids to the worker
+# as POST /api/embed, and the 1024-int vector comes back; it is centred,
+# whitened and normalised exactly like the label descriptions were
+# (02_label_embed.mnd), so one matmul against work/labels_u.csv gives the
+# cosine to every description (x 10^6 raw). Descriptions that are not
+# candidates for this request are pushed to -10^7 by the mask and the argmax
+# is the answer: the row of the nearest description; the caller maps the row
+# to its label name (work/descs.tsv). A label may have several descriptions -
+# the nearest one wins for it.
+#
+# embed() is a maned-run source (E018 under maned-serve and the bindings),
+# which is why this lane is a process the caller starts when the policy
+# asks for it, never a served flow.
+#
+# work/q/cand_d.csv is the [1,D] mask written as 0.001/0.000 so that it lands
+# as raw 1/0 at quantres 3 (every in:: lands at the program's scale).
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+device::worker {
+    host = env("S1_WORKER_HOST");   # the worker's address, from the environment like the login
+    port = 4780;
+    user = env("XLM_USER");
+    pass = env("XLM_PASS");
+}
+
+in::q = embed("worker", "work/q/text.txt", "work/sentencepiece.bpe.model");
+in::labs = csv("work/labels_u.csv");        # [D,256] unit rows at 10^-3 (`lu` is a reserved op name)
+in::cand = csv("work/q/cand_d.csv");        # [1,D] raw 1/0
+in::mean = dqt("work/xlm-stats.dqt", "mean");      # [1,1024]  the centering mean
+in::w = dqt("work/xlm-stats.dqt", "whiten");       # [256,1024] the whitening rows
+in::ok = 256 1 ones;
+in::rk = 1 256 ones;
+
+calc::lambda_flow classify(q, labs, cand, mean, w, ok, rk) {
+    q mean sub c =
+    c w transpose matmul 100 div z3 =
+    z3 z3 mul ok matmul isqrt n =
+    z3 1000 scalar_mul n rk matmul div u =
+    u labs transpose matmul s =               # [1,D] cosine x 10^6 raw
+    cand 1 sub cm =                           # 0 for candidates, -1 otherwise
+    cm 10000000 scalar_mul pen =
+    s cand mul pen add sm =                   # non-candidates at -10^7
+    sm argmax best =
+} return best, s;
+
+out::s = csv("work/q/xlm_scores.csv");

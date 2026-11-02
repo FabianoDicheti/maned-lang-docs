@@ -1,0 +1,212 @@
+# 05_eval.mnd -- the eval numbers, from the rows 05_eval.sh collected
+#
+#   ./05_eval.sh        (runs the four passes, then this; the log IS the report)
+#
+# work/eval/rows.csv has one row per request, 15 integer columns:
+#    0 pass (0 cold, 1 warm, 2 variants, 3 unseen)   1 lang (0 en, 1 pt, 2 de)
+#    2 truth   3 xlm   4 answer (label columns)
+#    5 how the answer was given: 0 known text, 1 judge auto, 2 judge verified by the XLM, 3 the XLM
+#    6 best  7 p_best (permille)  8 tier  9 known          the memory's lookup
+#   10 p at the XLM's label   11 disputed by the verifier (held back)
+#   12 t_answer  13 t_xlm  14 t_lookup   (ms)
+#
+# Every metric is a mask product: a 0/1 column times the pass one-hot [R,4]
+# gives a count per pass in one matmul; x1000 / n is a permille. The
+# calibration table bins the judge's confidence (p_best) for the requests
+# whose text was NOT yet in the memory (pass 0 while it fills, and pass 3):
+# 10 bins of 100 permille, with count, accuracy and mean confidence per bin,
+# and ECE = sum |acc - conf| * n_bin / N.
+#
+# Outputs [1,4] per pass unless said: n, xlm_acc, ans_acc, n_known, n_judge,
+# n_verified, n_xlm, mem_auto_acc (answers given by the memory alone, how<=1),
+# judge_acc (best == truth, all rows), judge_auto_acc (tier 2 rows),
+# n_judge_auto, n_disputed, catch (disputed and the XLM was wrong),
+# false_alarm (disputed and the XLM was right), checks [1,4] (the four
+# PASS conditions, 1 = pass); then t_answer, t_xlm,
+# t_lookup, xlm_acc_lang [1,3] (cold), and the calibration [1,10] rows
+# bin_n, bin_acc, bin_conf plus ece [1,1] and n_calib [1,1].
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::rows = csv("work/eval/rows.csv");       # [R,15] ints -> x1000
+in::r15 = 15 range;
+in::r4 = 4 range;
+in::r10 = 10 range;
+
+# outer_eq(u, v): u is [M,1], v is [1,N] -> [M,N], 1 where u[i] == v[j].
+calc::lambda_flow outer_eq(u, v) {
+    u 0 scalar_mul 1 add uo =
+    v 0 scalar_mul 1 add vo =
+    u vo matmul lhs =
+    uo v matmul rhs =
+    lhs rhs == m =
+} return m;
+
+# column k of rows as [R,1]
+calc::lambda_flow col(rows, r15c, k) {
+    r15c k == e =
+    rows e matmul c =
+} return c;
+
+# per-pass count of a 0/1 (or integer) column: [1,4]
+calc::lambda_flow cnt(x, P) {
+    x transpose xt =
+    xt P matmul c =
+} return c;
+
+# per-pass permille of a 0/1 column over a denominator row [1,4]
+calc::lambda_flow permille(x, P, den) {
+    x P cnt c =
+    c 1000 scalar_mul c1000 =
+    c1000 den div pm =
+} return pm;
+
+calc::lambda_flow metrics(rows, r15, r4, r10) {
+    rows 1000 div R =
+    r15 {dim0: 15, dim1: 1} reshape r15c =
+    r4 {dim0: 1, dim1: 4} reshape r4r =
+    R r15c 0 col pass =
+    R r15c 2 col truth =
+    R r15c 3 col xlm =
+    R r15c 4 col ans =
+    R r15c 5 col how =
+    R r15c 6 col best =
+    R r15c 8 col tier =
+    R r15c 11 col disp =
+
+    pass r4r outer_eq P =                     # [R,4]
+    pass 0 scalar_mul 1 add onesc =
+    onesc P cnt n =                           # [1,4]
+
+    xlm truth == xok =
+    xok P n permille xlm_acc =
+    ans truth == aok =
+    aok P n permille ans_acc =
+    how 0 == h0 =
+    how 1 == h1 =
+    how 2 == h2 =
+    how 3 == h3 =
+    h0 P cnt n_known =
+    h1 P cnt n_judge =
+    h2 P cnt n_verified =
+    h3 P cnt n_xlm =
+    h0 h1 add mem =                           # answered by the memory alone
+    mem P cnt n_mem =
+    aok mem mul mok =
+    mok P n_mem permille mem_auto_acc =
+    best truth == jok =
+    jok P n permille judge_acc =
+    tier 2 == auto =
+    auto P cnt n_judge_auto =
+    jok auto mul jauto =
+    jauto P n_judge_auto permille judge_auto_acc =
+    disp P cnt n_disputed =
+    xok -1 scalar_mul nxok =
+    nxok 1 add xwrong =
+    disp xwrong mul catch0 =
+    catch0 P cnt catch =
+    disp xok mul fa0 =
+    fa0 P cnt false_alarm =
+
+    # the four checks, 1 = PASS: cold pass never answered "known"; warm pass
+    # answered >= 95% of repeated texts by itself; the memory's warm answers
+    # are at least as right as the XLM's (it repeats what it learned); on the
+    # unseen pass the judge's tier-auto accuracy >= the XLM's (or it answered none)
+    r4r 0 == c0 =
+    r4r 1 == c1 =
+    r4r 3 == c3 =
+    c0 transpose c0c =
+    c1 transpose c1c =
+    c3 transpose c3c =
+    n_known c0c matmul known_cold =
+    known_cold 0 == pass_cold =
+    n_known n_judge add by_memory =
+    by_memory c1c matmul mem_warm =
+    mem_warm 100 scalar_mul mw100 =
+    n c1c matmul n_warm =
+    n_warm 95 scalar_mul nw95 =
+    mw100 nw95 >= pass_warm =
+    mem_auto_acc c1c matmul ma_warm =
+    xlm_acc c1c matmul xa_warm =
+    xa_warm 10 sub xa_warm10 =
+    ma_warm xa_warm10 >= pass_repeat =
+    n_judge_auto c3c matmul nja_unseen =
+    nja_unseen 0 == none_auto =
+    judge_auto_acc c3c matmul ja_unseen =
+    xlm_acc c3c matmul xa_unseen =
+    ja_unseen xa_unseen >= judge_ge =
+    none_auto judge_ge add pass_unseen0 =
+    pass_unseen0 0 > pass_unseen =
+    pass_cold pass_warm {axis: 1} concat pc01 =
+    pass_repeat pass_unseen {axis: 1} concat pc23 =
+    pc01 pc23 {axis: 1} concat checks =       # [1,4] cold, warm, repeat, unseen
+} return n, xlm_acc, ans_acc, n_known, n_judge, n_verified, n_xlm, mem_auto_acc, judge_acc, judge_auto_acc, n_judge_auto, n_disputed, catch, false_alarm, checks;
+
+# the second flow (a flow returns at most 16 values): timings, per-language XLM accuracy, calibration
+calc::lambda_flow timing_calib(rows, r15, r4, r10) {
+    rows 1000 div R =
+    r15 {dim0: 15, dim1: 1} reshape r15c =
+    r4 {dim0: 1, dim1: 4} reshape r4r =
+    R r15c 0 col pass =
+    R r15c 1 col lang =
+    R r15c 2 col truth =
+    R r15c 3 col xlm =
+    R r15c 6 col best =
+    R r15c 7 col gp =
+    R r15c 9 col known =
+    R r15c 12 col ta =
+    R r15c 13 col tx =
+    R r15c 14 col tl =
+    pass r4r outer_eq P =
+    pass 0 scalar_mul 1 add onesc =
+    onesc P cnt n =
+    xlm truth == xok =
+    best truth == jok =
+
+    ta P cnt sa =
+    sa n div t_answer =
+    tx P cnt sx =
+    sx n div t_xlm =
+    tl P cnt sl =
+    sl n div t_lookup =
+
+    # XLM accuracy per language on the cold pass
+    pass 0 == cold =
+    r4r 3 < keep3 =                           # [1,4] = 1,1,1,0
+    onesc keep3 matmul keep3m =               # [R,4]
+    lang r4r outer_eq L4 =                    # [R,4], 4th column always 0
+    L4 keep3m mul L =
+    cold L cnt nl =
+    xok cold mul xokc =
+    xokc L nl permille xlm_acc_lang4 =
+
+    # calibration of the judge on texts not yet in the memory: cold + unseen, not known
+    pass 3 == unseen =
+    cold unseen add fresh0 =
+    known -1 scalar_mul nk =
+    nk 1 add notknown =
+    fresh0 notknown mul fresh =               # [R,1]
+    gp 100 div bin0 =
+    bin0 9 sub b9 =
+    b9 relu excess =
+    bin0 excess sub bin =                     # min(bin0, 9): 1000 permille lands in the last bin
+    r10 {dim0: 1, dim1: 10} reshape r10r =
+    bin r10r outer_eq Bm =                    # [R,10]
+    r10r 0 scalar_mul 1 add o10 =
+    fresh o10 matmul freshm =                 # [R,10] the fresh mask broadcast over the bins
+    Bm freshm mul B =                         # bins of the fresh rows only
+    onesc B cnt bin_n =                       # [1,10]
+    jok B cnt bin_ok =
+    gp B cnt bin_conf_sum =
+    bin_ok 1000 scalar_mul bok1000 =
+    bok1000 bin_n div bin_acc =               # permille (0 where empty)
+    bin_conf_sum bin_n div bin_conf =         # permille
+    bin_acc bin_conf sub gap =
+    gap abs agap =
+    agap bin_n mul wgap =
+    o10 transpose o10c =
+    wgap o10c matmul wsum =
+    bin_n o10c matmul n_calib =
+    wsum n_calib div ece =                    # permille
+} return t_answer, t_xlm, t_lookup, xlm_acc_lang4, bin_n, bin_acc, bin_conf, ece, n_calib;

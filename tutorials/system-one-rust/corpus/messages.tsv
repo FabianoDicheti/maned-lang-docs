@@ -1,0 +1,108 @@
+en	urgent	Attention: the production server is down and customers cannot log in, please restart it now.
+en	urgent	Emergency: the payment gateway is rejecting every card since 9am, we are losing orders.
+en	urgent	The database disk is at 99 percent, the service will stop within the hour.
+en	urgent	Security alert: an admin password was leaked, rotate all credentials immediately.
+en	urgent	Critical bug in checkout, every purchase fails with a 500 error, fix before noon.
+en	urgent	The client demo starts in twenty minutes and the staging environment is unreachable.
+en	urgent	Fire alarm triggered in building B, evacuate and do not use the elevators.
+en	urgent	Our SSL certificate expires tonight, renew it today or the site goes dark.
+en	urgent	The delivery truck broke down with the vaccines inside, we need a replacement right now.
+en	urgent	Deadline today at 5pm: the grant application must be submitted or we lose the funding.
+en	urgent	Help, the main water pipe burst in the server room, the floor is flooding.
+en	urgent	A customer's data was sent to the wrong address, call them immediately before it is opened.
+en	later	Our monthly newsletter is out, with team photos from the summer picnic.
+en	later	Reminder that the office plants get watered on Fridays, volunteers welcome.
+en	later	The cafeteria menu for next month is attached, feedback is optional.
+en	later	Here are some blog posts about productivity that I found interesting.
+en	later	The company book club meets next quarter to discuss a novel, join if you like.
+en	later	Routine update: the parking lot will be repainted sometime in the spring.
+en	later	Photos from the holiday party are now in the shared album.
+en	later	Just sharing a podcast episode about remote work, no action needed.
+en	later	The quarterly wellness survey is open until the end of next month.
+en	later	A new coffee machine was installed on the third floor, enjoy.
+en	later	Low priority: the intranet got a new color scheme, have a look when you have time.
+en	later	Weekly digest of industry news, skim it whenever you have a spare moment.
+en	careful	Please review the attached contract amendment, clause 7 changes the liability cap.
+en	careful	The new data retention policy takes effect next month, read the full document before signing.
+en	careful	Your lease renewal includes a rent increase and a new early termination fee, read it carefully.
+en	careful	The tax authority sent an audit notice, every figure in the response must be exact.
+en	careful	Revised terms of service: the arbitration clause now applies to all disputes.
+en	careful	The insurance policy excludes water damage unless the rider on page 12 is signed.
+en	careful	Board resolution draft attached, the voting thresholds in section 3 were rewritten.
+en	careful	The loan agreement has a variable interest rate, check the adjustment schedule before you sign.
+en	careful	Compliance update: the export control list changed and affects two of our products.
+en	careful	The merger term sheet defines earn-out conditions in annex B, read every line.
+en	careful	Privacy notice revision: consent for marketing emails is now opt-in only, verify our forms comply.
+en	careful	The supplier contract renews automatically unless cancelled in writing 90 days before expiry.
+pt	urgent	Atenção: o servidor de produção caiu e os clientes não conseguem entrar, reinicie agora.
+pt	urgent	Emergência: o gateway de pagamento está recusando todos os cartões desde as 9h, estamos perdendo pedidos.
+pt	urgent	O disco do banco de dados está em 99 por cento, o serviço vai parar em menos de uma hora.
+pt	urgent	Alerta de segurança: uma senha de administrador vazou, troque todas as credenciais imediatamente.
+pt	urgent	Bug crítico no checkout, todas as compras falham com erro 500, corrija antes do meio-dia.
+pt	urgent	A demonstração para o cliente começa em vinte minutos e o ambiente de homologação está fora do ar.
+pt	urgent	Alarme de incêndio no prédio B, evacuem e não usem os elevadores.
+pt	urgent	Nosso certificado SSL expira hoje à noite, renove hoje ou o site sai do ar.
+pt	urgent	O caminhão de entrega quebrou com as vacinas dentro, precisamos de outro agora mesmo.
+pt	urgent	Prazo hoje às 17h: o pedido de financiamento precisa ser enviado ou perdemos a verba.
+pt	urgent	Socorro, o cano principal estourou na sala dos servidores, o chão está alagando.
+pt	urgent	Os dados de um cliente foram enviados para o endereço errado, ligue para ele imediatamente.
+pt	later	Saiu o boletim mensal, com as fotos da equipe no piquenique de verão.
+pt	later	Lembrete de que as plantas do escritório são regadas às sextas, voluntários são bem-vindos.
+pt	later	O cardápio do refeitório do mês que vem está em anexo, comentários são opcionais.
+pt	later	Aqui vão alguns artigos sobre produtividade que achei interessantes.
+pt	later	O clube do livro da empresa se reúne no próximo trimestre para discutir um romance, participe se quiser.
+pt	later	Atualização de rotina: o estacionamento será repintado em algum momento da primavera.
+pt	later	As fotos da festa de fim de ano já estão no álbum compartilhado.
+pt	later	Só compartilhando um episódio de podcast sobre trabalho remoto, nenhuma ação necessária.
+pt	later	A pesquisa trimestral de bem-estar fica aberta até o fim do mês que vem.
+pt	later	Uma máquina de café nova foi instalada no terceiro andar, aproveitem.
+pt	later	Baixa prioridade: a intranet ganhou cores novas, dê uma olhada quando tiver tempo.
+pt	later	Resumo semanal de notícias do setor, leia quando sobrar um tempo.
+pt	careful	Por favor revise o aditivo contratual em anexo, a cláusula 7 altera o limite de responsabilidade.
+pt	careful	A nova política de retenção de dados entra em vigor no mês que vem, leia o documento inteiro antes de assinar.
+pt	careful	A renovação do seu aluguel inclui reajuste e uma nova multa por rescisão antecipada, leia com atenção.
+pt	careful	A Receita enviou uma notificação de auditoria, cada número da resposta precisa estar exato.
+pt	careful	Termos de serviço revisados: a cláusula de arbitragem agora vale para todas as disputas.
+pt	careful	A apólice de seguro exclui danos por água a menos que o adendo da página 12 seja assinado.
+pt	careful	Minuta de resolução do conselho em anexo, os quóruns de votação da seção 3 foram reescritos.
+pt	careful	O contrato de empréstimo tem juros variáveis, confira a tabela de reajuste antes de assinar.
+pt	careful	Atualização de conformidade: a lista de controle de exportação mudou e afeta dois dos nossos produtos.
+pt	careful	O term sheet da fusão define as condições de earn-out no anexo B, leia cada linha.
+pt	careful	Revisão do aviso de privacidade: o consentimento para e-mails de marketing agora é apenas opt-in, verifique nossos formulários.
+pt	careful	O contrato com o fornecedor renova automaticamente a menos que seja cancelado por escrito 90 dias antes do vencimento.
+de	urgent	Achtung: der Produktionsserver ist ausgefallen und Kunden können sich nicht anmelden, bitte sofort neu starten.
+de	urgent	Notfall: das Zahlungsgateway lehnt seit 9 Uhr jede Karte ab, wir verlieren Bestellungen.
+de	urgent	Die Datenbankfestplatte ist zu 99 Prozent voll, der Dienst steht innerhalb einer Stunde still.
+de	urgent	Sicherheitswarnung: ein Admin-Passwort ist durchgesickert, alle Zugangsdaten sofort ändern.
+de	urgent	Kritischer Fehler im Checkout, jeder Kauf schlägt mit Fehler 500 fehl, bis Mittag beheben.
+de	urgent	Die Kundendemo beginnt in zwanzig Minuten und die Staging-Umgebung ist nicht erreichbar.
+de	urgent	Feueralarm in Gebäude B, evakuieren und keine Aufzüge benutzen.
+de	urgent	Unser SSL-Zertifikat läuft heute Nacht ab, heute erneuern oder die Seite ist offline.
+de	urgent	Der Lieferwagen mit den Impfstoffen ist liegen geblieben, wir brauchen sofort Ersatz.
+de	urgent	Frist heute um 17 Uhr: der Förderantrag muss eingereicht werden, sonst verlieren wir die Mittel.
+de	urgent	Hilfe, das Hauptwasserrohr im Serverraum ist geplatzt, der Boden steht unter Wasser.
+de	urgent	Kundendaten wurden an die falsche Adresse geschickt, sofort anrufen bevor es geöffnet wird.
+de	later	Unser monatlicher Newsletter ist da, mit Teamfotos vom Sommerpicknick.
+de	later	Erinnerung, dass die Büropflanzen freitags gegossen werden, Freiwillige willkommen.
+de	later	Der Kantinenplan für nächsten Monat ist angehängt, Rückmeldung ist freiwillig.
+de	later	Hier sind ein paar Blogartikel über Produktivität, die ich interessant fand.
+de	later	Der Buchclub der Firma trifft sich nächstes Quartal zu einem Roman, mach mit wenn du magst.
+de	later	Routineinfo: der Parkplatz wird irgendwann im Frühjahr neu markiert.
+de	later	Die Fotos von der Weihnachtsfeier sind jetzt im gemeinsamen Album.
+de	later	Ich teile nur eine Podcastfolge über Remote-Arbeit, nichts zu tun.
+de	later	Die vierteljährliche Wohlbefindensumfrage ist bis Ende nächsten Monats offen.
+de	later	Im dritten Stock wurde eine neue Kaffeemaschine aufgestellt, viel Spaß.
+de	later	Niedrige Priorität: das Intranet hat ein neues Farbschema, schau es dir bei Gelegenheit an.
+de	later	Wöchentliche Zusammenfassung der Branchennews, überfliegen wenn Zeit ist.
+de	careful	Bitte prüfen Sie den angehängten Vertragsnachtrag, Klausel 7 ändert die Haftungsobergrenze.
+de	careful	Die neue Richtlinie zur Datenaufbewahrung gilt ab nächstem Monat, vor der Unterschrift das ganze Dokument lesen.
+de	careful	Ihre Mietverlängerung enthält eine Mieterhöhung und eine neue Gebühr für vorzeitige Kündigung, bitte genau lesen.
+de	careful	Das Finanzamt hat eine Prüfungsankündigung geschickt, jede Zahl in der Antwort muss exakt stimmen.
+de	careful	Überarbeitete Nutzungsbedingungen: die Schiedsklausel gilt jetzt für alle Streitigkeiten.
+de	careful	Die Versicherungspolice schließt Wasserschäden aus, sofern der Zusatz auf Seite 12 nicht unterschrieben ist.
+de	careful	Entwurf des Vorstandsbeschlusses angehängt, die Abstimmungsschwellen in Abschnitt 3 wurden neu gefasst.
+de	careful	Der Kreditvertrag hat einen variablen Zinssatz, prüfen Sie den Anpassungsplan vor der Unterschrift.
+de	careful	Compliance-Update: die Exportkontrollliste hat sich geändert und betrifft zwei unserer Produkte.
+de	careful	Das Term Sheet der Fusion definiert die Earn-out-Bedingungen in Anhang B, lesen Sie jede Zeile.
+de	careful	Überarbeitung der Datenschutzerklärung: die Einwilligung für Marketing-E-Mails ist jetzt nur noch Opt-in, prüfen Sie unsere Formulare.
+de	careful	Der Liefervertrag verlängert sich automatisch, wenn er nicht 90 Tage vor Ablauf schriftlich gekündigt wird.

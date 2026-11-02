@@ -1,0 +1,27 @@
+# 00_provision.mnd -- send the model to the worker, from maned (tensor::provision)
+#
+#   ./00_provision.sh
+#
+# In order, all printed as notes: the file's sha256 is computed here while
+# streaming; the worker's survey is fetched (its disk, the BARK DATA partition
+# and its slots, or the extent it would create); then the 1.85 GB file is
+# streamed as POST /api/provision with that sha256 (file-streamed body, 900 s
+# deadline). The worker is the guard: the same file without force answers
+# `already-provisioned` after receiving and hashing the whole body and writes
+# nothing; a wrong sha is a 400 with the disk untouched; a fresh worker
+# answers PASS. Every refusal is E036 with the worker's text.
+#
+# The address and the login come from the environment (~/.config/maned/xlm.env,
+# sourced once per shell), never from this file.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 5;
+
+device::worker {
+    host = env("S1_WORKER_HOST");   # the worker's address, from the environment like the login
+    port = 4780;
+    user = env("XLM_USER");
+    pass = env("XLM_PASS");
+}
+
+tensor::provision("worker", "work/xlmr-large.int32.dqt");
