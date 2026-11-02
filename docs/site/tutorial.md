@@ -9,12 +9,22 @@ this page is complete, every output was produced by running it. Nothing
 leaves your network. The project is nine Maned programs, a policy file, a
 corpus and three apps; the steps between them are commands you type.*
 
-![The architecture: your app runs the memory lookup in-process through a Maned binding and answers in milliseconds; when the policy asks, it starts the XLM lane on the worker and the memory learns from it](assets/img/s1-arch.png "Two lanes answer every question. The memory is a cache of known texts and a judge of unseen ones; the XLM-R worker is the slow generalist it learns from.")
+![The architecture: a request carries text, labels and a risk level; the DQTensor Markov memory answers in about a millisecond and, when it is not confident, the XLM-R worker answers over the LAN in about 400 ms; the memory resolves the two, returns the answer and learns it back into the .dqt shard, escalating to a human only when neither lane is sure](assets/img/s1-arch.png "Six steps per request. The memory answers in about a millisecond; the XLM-R worker, about 400 ms over the LAN, is the fallback; what is learned is written back into the Markov shard, and only the cases neither lane resolves go to a human.")
 
 > **Too long, want the code?** The complete project, deployable from
-> zero, is on GitHub: [tutorials/system-one-tutorial](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-tutorial). Its README has
-> the seven commands from a fresh worker to a running service; this page
-> is the why and the how of each file in it.
+> zero, is on GitHub:
+> [tutorials/system-one-tutorial](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-tutorial) —
+> all three languages in one folder, with a README of the seven commands
+> from a fresh worker to a running service. Prefer just yours? Each
+> language has its own copy:
+> [system-one-python](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-python),
+> [system-one-rust](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-rust),
+> [system-one-kotlin](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-kotlin).
+> And if you would rather have it set up for you,
+> [system-one-setup-agent](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-setup-agent)
+> is a Claude Code assistant: clone it, run `claude`, type `/setup`, and it
+> walks you through the whole deployment in the language you choose. This
+> page is the why and the how of each file in the project.
 
 ## What a System One is
 
@@ -94,7 +104,7 @@ teacher. Both are visible in the numbers and both have a knob.
 | **Maned 0.4.2 or newer** | `maned-run` and `maned-serve` on your PATH: see [Install](install.html). The `spm()`, `embed()` and `tensor::provision` constructs used here arrived in 0.4.2. |
 | **A second computer** | 64-bit x86, 8 GB of RAM, a SATA or NVMe disk, a wired Ethernet port (or a Realtek RTL8153 USB adapter). An old laptop or a mini PC is ideal. AVX2 makes it ten times faster. |
 | **A USB stick** | 64 MB or more. It will be erased. |
-| **Downloads** | the 22 MB worker image, the 1.85 GB model as integers, a 5 MB tokenizer model, 153 KB of statistics. Every file is checked against its sha256. |
+| **Downloads** | the 24 MB worker image, the 1.85 GB model as integers, a 5 MB tokenizer model, 153 KB of statistics. Every file is checked against its sha256. |
 | **Python 3 and `manedpy`** | the loop's reference app, which parts 6 and 7 run from the terminal; `pip install manedpy`, 0.4.2 or newer. |
 | **For part 8** | the Kotlin or Rust binding too, if that is your language: `dev.maned:maned` on Maven Central, the `maned` crate on crates.io. See [Integration](bindings.html). |
 | **An afternoon** | most of it waiting for the model to travel to the worker. |
@@ -155,7 +165,7 @@ curl -fsSLO https://github.com/FabianoDicheti/maned/releases/latest/download/SHA
 shasum -a 256 -c SHA256SUMS --ignore-missing      # Linux: sha256sum -c SHA256SUMS --ignore-missing
 ```
 
-The image is about 22 MB and boots on BIOS and on UEFI from the same file.
+The image is about 24 MB and boots on BIOS and on UEFI from the same file.
 Then write it. **This erases the stick.** Find the right device name before
 you type it; writing to the wrong disk destroys that disk.
 
@@ -1003,9 +1013,12 @@ calc::lambda_flow lookup(msg, req, policy, counts, ntexts, rb, r32, r4, k) {
     p_best p_second sub margin =
 
     # --- the tier, and the expected rank for Score questions
-    p_best t_auto >= ga =
-    p_best t_verify >= gv =
-    ga gv add tier =
+    p_best t_auto >= ga0 =
+    c1 c3 mul covered =                       # the best label covers >= 70% of the text's features (c1)
+    covered ga0 mul ga =                      # and the text has >= 3 features (c3): AUTO needs that
+    p_best t_verify >= gv =                   # coverage, not just a confident judge. A thinly covered
+    ga gv add tier =                          # text the judge is merely sure about caps at VERIFY,
+    # (c1, c3 are the coverage and feature-count tests computed for the known check above)
     ordv transpose ordc =
     p ordc matmul expected =                  # permille * rank
 } return best, p_best, margin, tier, expected, known, kbest, cov_best, cov_second, q, t_dispute, informed, p;
@@ -1611,7 +1624,7 @@ def decide(text, labels, risk="medium", ordinal=None, train=False):
     best, p_best, tier, known, kbest = v["best"][0], v["p_best"][0], v["tier"][0], v["known"][0], v["kbest"][0]
     p, label = v["p"], lines("work/labels.tsv")
     answer = via = xlm = None
-    how, t_xlm, recorded, disputed, p_xlm = 3, 0, None, False, 0
+    how, t_xlm, recorded, disputed, p_xlm, held = 3, 0, None, False, 0, None
     if known:
         answer, via, how = label[kbest], "memory:known", 0
     elif tier == 2:
@@ -1622,9 +1635,21 @@ def decide(text, labels, risk="medium", ordinal=None, train=False):
         descs = [l.split("\t", 1)[0] for l in lines("work/descs.tsv")]
         open("work/q/cand_d.csv", "w").write(",".join("0.001" if d in names else "0.000" for d in descs) + "\n")
         t1 = time.time()
-        xcol = col_of(descs[run_mnd("02_xlm_classify.mnd")["best"][0]])
+        cls = run_mnd("02_xlm_classify.mnd")
+        xcol = col_of(descs[cls["best"][0]])
         t_xlm = int((time.time() - t1) * 1000)
         xlm, p_xlm = label[xcol], p[xcol]
+        # the teacher's confidence: the cosine margin between its best and second-best
+        # candidate LABEL (max cosine over each label's descriptions). s is x10^6 raw.
+        s = cls.get("s", [])
+        bylabel = {}
+        for i, dn in enumerate(descs):
+            if dn in names and i < len(s):
+                bylabel[dn] = max(bylabel.get(dn, -10 ** 9), s[i])
+        topc = sorted(bylabel.values(), reverse=True)
+        margin = (topc[0] - topc[1]) if len(topc) >= 2 else 10 ** 12
+        learn = int(os.environ.get("S1_LEARN", DEFAULT_LEARN))
+        confident = train or (tier == 1 and best == xcol) or margin >= learn * 1000  # training learns unconditionally; the gate is for normal, unprompted learning
         if answer is None:
             if tier == 1 and best == xcol:
                 answer, via, how = label[best], "memory:verified", 2
@@ -1635,16 +1660,22 @@ def decide(text, labels, risk="medium", ordinal=None, train=False):
         if disputed:
             open("work/review.tsv", "a", encoding="utf-8").write("%s\t%s\t%d\t%d\t%s\n" % (xlm, label[best], p_best, p_xlm, text))
         elif not (known and xlm == label[kbest]):
-            open("work/q/label.csv", "w").write("%d\n" % xcol)
-            run_mnd("03_record.mnd")                 # rewrites work/memory.dqt
-            open("work/memory.tsv", "a", encoding="utf-8").write("%s\t%s\n" % (xlm, text))
-            recorded = xlm
-            lookup.close()
-            lookup = mnd.load("01_lookup.mnd")      # the memory it loaded has changed on disk
+            if confident:
+                open("work/q/label.csv", "w").write("%d\n" % xcol)
+                run_mnd("03_record.mnd")                 # rewrites work/memory.dqt
+                open("work/memory.tsv", "a", encoding="utf-8").write("%s\t%s\n" % (xlm, text))
+                recorded = xlm
+                lookup.close()
+                lookup = mnd.load("01_lookup.mnd")      # the memory it loaded has changed on disk
+            else:
+                # the teacher was too unsure to learn from unprompted: hold it for review
+                held = margin // 1000
+                open("work/pending.tsv", "a", encoding="utf-8").write(
+                    "%s\t%d\t%s\t%s\n" % (xlm, held, "|".join(names), text))
     t_answer = t_lookup + (t_xlm if how >= 2 else 0)
     return {"answer": answer, "via": via, "tier": TIERS[tier], "known": bool(known),
             "p": {n: p[col_of(n)] for n in names}, "expected": v["expected"][0] / 1000.0,
-            "xlm": xlm, "recorded": recorded, "disputed": disputed, "ms": t_answer,
+            "xlm": xlm, "recorded": recorded, "disputed": disputed, "held": held, "ms": t_answer,
             # the lookup's own numbers, for a transcript or an evaluation row
             "best": label[best], "p_best": p_best, "coverage": (v["cov_best"][0], v["q"][0]),
             "raw": [how, best, p_best, tier, known, p_xlm, int(disputed), t_answer, t_xlm, t_lookup]}
