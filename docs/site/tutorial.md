@@ -438,7 +438,7 @@ disk untouched; a fresh worker answers `PASS`.
 ```mnd
 # 00_provision.mnd -- send the model to the worker, from maned (tensor::provision)
 #
-#   ./00_provision.sh
+#   . ~/.config/maned/xlm.env && maned-run 00_provision.mnd      (once per worker)
 #
 # In order, all printed as notes: the file's sha256 is computed here while
 # streaming; the worker's survey is fetched (its disk, the BARK DATA partition
@@ -503,7 +503,7 @@ computed over its own bytes.
 ```mnd
 # 00_embed_check.mnd -- the first sentence through the worker: text in, vector out
 #
-#   ./00_embed_check.sh "Any sentence, in any of XLM-R's languages."
+#   printf '%s\n' "Any sentence, in any of XLM-R's languages." > work/q/text.txt && maned-run 00_embed_check.mnd
 #
 # spm() tokenizes work/q/text.txt here with the checkpoint's SentencePiece
 # model (the native Unigram tokenizer: the same ids as the Hugging Face
@@ -683,7 +683,7 @@ so it reads `0..N−1` from a file like any other input.
 ```mnd
 # 00_init_memory.mnd -- the empty memory, and the three index rows the programs read
 #
-#   ./00_setup.sh          (runs this once; --reset runs it again)
+#   mkdir -p work/q/out work/ranges && maned-run 00_init_memory.mnd      (once; run it again to start over)
 #
 # The memory is ONE file with two tensors, both plain counts:
 #
@@ -791,7 +791,7 @@ No worker involved.*
 # 01_lookup.mnd -- the fast lane: text in, a decision out, from the memory alone
 #
 #   ./01_lookup.sh "the text" urgent later careful      (maned-run: text from work/q/text.txt)
-#   ./07_serve.sh start                                 (maned-serve: text from the request)
+#   maned-serve 01_lookup.mnd --port 8787               (maned-serve: text from the request)
 #
 # ONE program for both. spm() tokenizes the text with XLM-R's SentencePiece
 # model - a file under maned-run, the request body under maned-serve and the
@@ -1600,7 +1600,7 @@ out of a program.*
 
 The loop is an app, not a script. The Python one is its reference text,
 [`consumers/python/decide.py`](https://github.com/FabianoDicheti/maned-lang-docs/tree/main/tutorials/system-one-tutorial/consumers/python/decide.py) in the
-repository: a hundred lines that run the lookup in-process through
+repository: three hundred lines that run the lookup in-process through
 `manedpy`, start `maned-run` for the worker and the record, keep the
 label registry, and append the dataset line. Its heart is the one
 function below; the rest of the file is the registry, the request csv and
@@ -2390,7 +2390,7 @@ answers the same requests, byte for byte, through a library call instead
 of a socket. `run_files` is the multipart route: the text as bytes under
 the name of the `spm()` input, the request csv as bytes, and the outputs
 back as a map of csv bytes. Each app is a complete System One in about
-a hundred lines: the lookup in-process, `maned-run` for the worker and
+three hundred lines: the lookup in-process, `maned-run` for the worker and
 the record, the label registry and the dataset line. The Python one is
 the reference text of part 6 and carries the training mode and the
 verifier as well; the Kotlin and Rust ones are the serving loop, which is
@@ -2411,8 +2411,8 @@ python3 consumers/python/decide.py
 ```
 
 ```text
-choice: urgent  (p 857%o, tier auto, via memory:known, 28 ms)
-yes/no: yes  (P(yes) 1000%o, tier auto, via memory:known, 1 ms)
+choice: urgent  (p 857‰, tier auto, via memory:known, 28 ms)
+yes/no: yes  (P(yes) 1000‰, tier auto, via memory:known, 1 ms)
 score:  rank 2, expected 2.00  (tier auto, via memory:known, 1 ms)
 ```
 

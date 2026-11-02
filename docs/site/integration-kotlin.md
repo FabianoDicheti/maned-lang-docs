@@ -37,8 +37,8 @@ plugins {
 repositories { mavenCentral() }
 
 dependencies {
-    implementation("dev.maned:maned:0.4.2")
-    runtimeOnly("dev.maned:maned:0.4.2:macos-universal")   // your platform here
+    implementation("dev.maned:maned:0.4.3")
+    runtimeOnly("dev.maned:maned:0.4.3:macos-universal")   // your platform here
 }
 application {
     mainClass.set("ScoringKt")

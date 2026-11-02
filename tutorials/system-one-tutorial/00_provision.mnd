@@ -1,6 +1,6 @@
 # 00_provision.mnd -- send the model to the worker, from maned (tensor::provision)
 #
-#   ./00_provision.sh
+#   . ~/.config/maned/xlm.env && maned-run 00_provision.mnd      (once per worker)
 #
 # In order, all printed as notes: the file's sha256 is computed here while
 # streaming; the worker's survey is fetched (its disk, the BARK DATA partition

@@ -65,9 +65,8 @@ gradle run --args='--pending'                # answers held for review; or --res
 gradle run --args='--serve 8808'             # a browser UI -> http://127.0.0.1:8808 (JDK com.sun.net.httpserver)
 ```
 
-This app needs `dev.maned:maned:0.4.3` (0.4.2 cannot load a host-side `spm()` initializer);
-until it is on Maven Central the project resolves it from `mavenLocal()` — publish it once with
-`./gradlew publishToMavenLocal` in the `maned-kotlin` repo.
+This app needs `dev.maned:maned:0.4.3` from Maven Central (0.4.2 bundles an
+engine that cannot load a host-side `spm()` initializer).
 
 ## When the memory asks the worker, and what it learns
 

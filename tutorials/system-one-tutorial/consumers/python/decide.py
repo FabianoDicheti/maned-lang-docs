@@ -292,13 +292,13 @@ def demo():
                     {"urgent": "This message needs action right now: an outage, an emergency, a deadline today.",
                      "later": "This message can wait: an update, a newsletter, something for next week.",
                      "careful": "This message needs care before acting: a contract, a legal clause, a payment detail."})
-    print("choice: %s  (p %d%%o, tier %s, via %s, %d ms)" % (
+    print("choice: %s  (p %d‰, tier %s, via %s, %d ms)" % (
         choice["answer"], choice["p"][choice["answer"]], choice["tier"], choice["via"], choice["ms"]))
 
     statement = "This message asks for money to be sent"
     yesno = decide("Please wire the deposit today.",
                    {"yes": statement, "no": "It is not the case that " + statement[0].lower() + statement[1:]})
-    print("yes/no: %s  (P(yes) %d%%o, tier %s, via %s, %d ms)" % (
+    print("yes/no: %s  (P(yes) %d‰, tier %s, via %s, %d ms)" % (
         yesno["answer"], yesno["p"]["yes"], yesno["tier"], yesno["via"], yesno["ms"]))
 
     score = decide("The kitchen will be repainted next spring.",

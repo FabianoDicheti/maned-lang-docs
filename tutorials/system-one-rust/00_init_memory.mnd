@@ -1,6 +1,6 @@
 # 00_init_memory.mnd -- the empty memory, and the three index rows the programs read
 #
-#   ./00_setup.sh          (runs this once; --reset runs it again)
+#   mkdir -p work/q/out work/ranges && maned-run 00_init_memory.mnd      (once; run it again to start over)
 #
 # The memory is ONE file with two tensors, both plain counts:
 #

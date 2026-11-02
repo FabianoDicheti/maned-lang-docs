@@ -10,7 +10,7 @@
 #                                       several languages, as raw integers at the scale
 #                                       02_xlm_classify.mnd and 02_label_embed.mnd use
 #        work/xlmr-large.int32.dqt      the model as exact integers (1.85 GB; only needed
-#                                       by 00_provision.sh, once per worker)
+#                                       by 00_provision.mnd, once per worker)
 # Every download is checked against its published sha256 before it is kept.
 # ============================================================================
 . "$(dirname "$0")/_common.sh"
@@ -32,6 +32,6 @@ fetch xlm-stats.dqt           "$REL/xlm-stats.dqt"           9a20130ca72b7ecacaf
 if [ "${WITH_WEIGHTS:-0}" = 1 ]; then
   fetch xlmr-large.int32.dqt  "$REL/xlmr-large.int32.dqt"    d84e81a8da7b8898713d3a4861091c1961210a82b71f5fa99b9f8730ad5d9dd7
 else
-  echo "work/xlmr-large.int32.dqt: skipped (WITH_WEIGHTS=1 fetches it; only 00_provision.sh needs it)"
+  echo "work/xlmr-large.int32.dqt: skipped (WITH_WEIGHTS=1 fetches it; only 00_provision.mnd needs it)"
 fi
 echo "download done"

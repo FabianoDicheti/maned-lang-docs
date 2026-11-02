@@ -22,7 +22,7 @@ maned-run --version
 ```
 
 ```
-maned-run 0.4.1
+maned-run 0.4.2
 build: b6c94fa (aarch64-apple-darwin)
 ```
 
@@ -64,7 +64,7 @@ covers downloading, verifying and writing it to a USB stick.
 
 ```sh
 # install a specific release instead of the latest
-curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --version 0.4.1
+curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --version 0.4.2
 
 # install somewhere else
 curl -fsSL https://fabianodicheti.github.io/maned/install.sh | sh -s -- --prefix ~/tools
@@ -91,8 +91,8 @@ Download a tarball from the
 [releases page](https://github.com/FabianoDicheti/maned/releases), then:
 
 ```sh
-tar -xzf maned-0.4.1-<target>.tar.gz
-cd maned-0.4.1-<target>
+tar -xzf maned-0.4.2-<target>.tar.gz
+cd maned-0.4.2-<target>
 sudo cp bin/* /usr/local/bin/                      # everyone
 mkdir -p ~/.local/bin && cp bin/* ~/.local/bin/    # just you
 ```

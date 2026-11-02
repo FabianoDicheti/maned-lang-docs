@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System One (Kotlin)</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1a1c20;--muted:#6b7280;--line:#e4e7ec;--accent:#7f52ff;
+    --auto:#15803d;--verify:#b45309;--review:#b91c1c;--bar:#e4dcfb;--barfill:#7f52ff;--code:#f0f2f6;--ok:#15803d;--tag:#ece5fe;--tagink:#5b34c7}
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1115;--card:#181b20;--ink:#e7e9ee;--muted:#9aa2af;--line:#2a2f37;
+    --accent:#a78bfa;--auto:#4ade80;--verify:#fbbf24;--review:#f87171;--bar:#241f33;--barfill:#a78bfa;--code:#11141a;--ok:#4ade80;--tag:#241f33;--tagink:#c4b5fd}}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 16px 64px} h1{font-size:20px;margin:0 0 2px} h2{font-size:16px;margin:26px 0 10px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px} .sub b{color:var(--ink);font-weight:600}
+  .tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
+  .tabs button{border:0;background:transparent;color:var(--ink);padding:9px 20px;font:inherit;font-weight:600;cursor:pointer}
+  .tabs button[aria-selected=true]{background:var(--accent);color:#fff} .panel[hidden]{display:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px}
+  textarea,input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:inherit}
+  textarea{resize:vertical;min-height:70px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:transparent;color:var(--ink);padding:8px 12px;font:inherit;cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+  .labels .lrow{display:flex;gap:8px;margin-bottom:8px} .labels .lrow input.name{flex:0 0 120px} .labels .lrow input.desc{flex:1}
+  .labels .lrow button{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;cursor:pointer;padding:0 12px}
+  .addbtn{border:1px dashed var(--line);background:transparent;color:var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .go{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer} .go:disabled{opacity:.5;cursor:progress}
+  .ghost{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)} .chk input{width:auto}
+  .answer{font-size:28px;font-weight:700;margin:2px 0 4px}
+  .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;color:#fff;text-transform:uppercase;letter-spacing:.04em}
+  .b-auto{background:var(--auto)} .b-verify{background:var(--verify)} .b-review{background:var(--review)}
+  .meta{color:var(--muted);font-size:13px;margin-top:8px} .meta b{color:var(--ink)}
+  .lanes{margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .lane{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:13px} .lane+.lane{border-top:1px solid var(--line)}
+  .lane .who{flex:0 0 76px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-size:11px}
+  .lane .what{flex:1} .lane .ms{flex:0 0 auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .bars{margin-top:14px} .bar{display:flex;align-items:center;gap:10px;margin:6px 0}
+  .bar .bn{flex:0 0 90px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .bt{flex:1;height:18px;background:var(--bar);border-radius:6px;overflow:hidden} .bar .bf{height:100%;background:var(--barfill);border-radius:6px}
+  .bar .bv{flex:0 0 52px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .note{margin-top:12px;padding:10px;border-radius:8px;font-size:13px;font-weight:600}
+  .note-review{background:color-mix(in srgb,var(--review) 15%,transparent);color:var(--review)}
+  .note-hold{background:color-mix(in srgb,var(--verify) 16%,transparent);color:var(--verify)}
+  .note-ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+  .err{color:var(--review);font-weight:600;white-space:pre-wrap}
+  details{margin-top:12px}summary{cursor:pointer;color:var(--muted);font-size:13px}
+  pre{overflow:auto;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12.5px;line-height:1.45;margin:8px 0}
+  code{background:var(--code);border-radius:4px;padding:1px 5px;font-size:13px}
+  .hint{color:var(--muted);font-size:12px;margin-top:4px}
+  .ep{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--card)}
+  .ep .sig{font-family:ui-monospace,Menlo,monospace;font-size:14px;font-weight:600}
+  .ep .m{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--tag);color:var(--tagink);margin-right:8px}
+  .ep p{color:var(--muted);font-size:13px;margin:8px 0 4px}
+</style></head>
+<body><div class="wrap">
+  <h1>System One <span style="color:var(--accent)">· Kotlin</span></h1>
+  <div class="sub">memory answers first · the XLM worker teaches it · worker <b id="host">…</b> · gate S1_LEARN=<b id="learn">…</b>‰ · served by the <code>dev.maned</code> binding</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="decide" aria-selected="true">Decide</button>
+    <button role="tab" data-tab="api" aria-selected="false">API</button>
+  </div>
+
+  <div class="panel" id="panel-decide" role="tabpanel">
+  <div class="card">
+    <label>Mode</label>
+    <div class="seg" id="mode">
+      <button data-m="choice" aria-pressed="true">Choice</button>
+      <button data-m="yesno" aria-pressed="false">Yes / No</button>
+      <button data-m="score" aria-pressed="false">Score</button>
+    </div>
+    <div style="margin-top:14px"><label>Text</label>
+      <textarea id="text">Our servers crashed again, customers cannot log in, fix it within the hour.</textarea></div>
+    <div style="margin-top:14px"><label id="labelsLabel">Labels &amp; descriptions</label>
+      <div class="labels" id="labels"></div>
+      <button class="addbtn" id="addLabel" type="button">+ add label</button></div>
+    <div class="row" style="margin-top:16px">
+      <div><label>Risk</label><div class="seg" id="risk">
+        <button data-r="low" aria-pressed="false">Low</button>
+        <button data-r="medium" aria-pressed="true">Medium</button>
+        <button data-r="high" aria-pressed="false">High</button></div></div>
+      <div style="flex:0 0 auto"><label>&nbsp;</label>
+        <label class="chk"><input type="checkbox" id="train"> training mode (XLM always runs &amp; teaches)</label></div>
+    </div>
+    <div style="margin-top:16px"><button class="go" id="go">Decide</button></div>
+  </div>
+  <div id="out"></div>
+  </div>
+
+  <div class="panel" id="panel-api" role="tabpanel" hidden>
+    <p class="sub">The same HTTP endpoints as the Python and Rust UIs, served from the JDK's built-in HttpServer.
+      Examples use <code>http://127.0.0.1:<span class="uiport">PORT</span></code> and <code>$S1_WORKER_HOST:4780</code>.</p>
+    <h2>This UI's test API</h2>
+    <div class="ep"><div><span class="m">GET</span><span class="sig">/api/host</span></div>
+      <p>Worker host, this UI's port, and the learning gate.</p>
+      <pre>curl -s http://127.0.0.1:<span class="uiport">PORT</span>/api/host</pre></div>
+    <div class="ep"><div><span class="m">POST</span><span class="sig">/api/decide</span></div>
+      <p>Body: <code>{mode, text, risk, train, labels:[{name,desc}]}</code>. Returns the decide() result
+        (answer, via, tier, p{}, best, p_best, coverage, xlm, recorded, held, disputed, t_lookup, t_xlm, ms).</p>
+      <pre>curl -s http://127.0.0.1:<span class="uiport">PORT</span>/api/decide -H 'Content-Type: application/json' \
+  -d '{"mode":"choice","risk":"medium","train":false,"text":"the house is on fire",
+       "labels":[{"name":"urgent","desc":"act now: an outage or emergency"},
+                 {"name":"later","desc":"can wait: a newsletter"},
+                 {"name":"careful","desc":"read closely: a contract"}]}'</pre></div>
+    <div class="ep"><div><span class="m">GET</span><span class="sig">/api/worker-status</span></div>
+      <p>Proxies the worker's <code>/api/status</code> (no auth).</p>
+      <div class="row" style="margin:6px 0"><button class="ghost" id="pingWorker" type="button">Check worker</button>
+        <span class="hint" id="pingHint"></span></div>
+      <pre id="workerOut" hidden></pre></div>
+    <h2>The XLM worker API <span class="hint">(bare-metal server, port 4780)</span></h2>
+    <div class="ep"><div><span class="m">GET</span><span class="sig">/api/status</span></div>
+      <pre>curl -s http://$S1_WORKER_HOST:4780/api/status | python3 -m json.tool</pre></div>
+    <div class="ep"><div><span class="m">POST</span><span class="sig">/api/auth</span> → <span class="m">POST</span><span class="sig">/api/embed</span></div>
+      <pre>TOKEN=$(curl -s -X POST http://$S1_WORKER_HOST:4780/api/auth \
+          -d '{"username":"&lt;user&gt;","password":"&lt;pass&gt;"}' \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+curl -s -X POST http://$S1_WORKER_HOST:4780/api/embed -H "X-Caramel-Token: $TOKEN" \
+     -d '{"ids":[0,35378,8999,2]}' | python3 -m json.tool
+# -> { "vector":[1024 ints], "scale":n, "tokens":k, "model_sha256":"…", "sha256":"…" }</pre>
+      <p class="hint">Credentials live in <code>~/.config/maned/xlm.env</code> (mode 600); never put them in a repo or a URL.</p></div>
+  </div>
+</div>
+<script>
+const DEFAULTS={choice:[["urgent","This message needs action right now: an outage, an emergency, a deadline today."],
+  ["later","This message can wait: an update, a newsletter, something for next week."],
+  ["careful","This message needs care before acting: a contract, a legal clause, a payment detail."]],
+  yesno:[["yes","This message asks for money to be sent"],["no","It is not the case that this message asks for money to be sent"]],
+  score:[["1","no action"],["2","look this week"],["3","act today"]]};
+const EXAMPLE={choice:"Our servers crashed again, customers cannot log in, fix it within the hour.",
+  yesno:"Please wire the deposit today.",score:"The kitchen will be repainted next spring."};
+let mode="choice"; const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
+$$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  $('#panel-decide').hidden=b.dataset.tab!=='decide'; $('#panel-api').hidden=b.dataset.tab!=='api';});
+function renderLabels(){const box=$("#labels");box.innerHTML="";const rows=DEFAULTS[mode];const fixed=(mode!=="choice");
+  $("#labelsLabel").textContent=mode==="yesno"?"Statement (yes) / negation (no)":mode==="score"?"Ranks 1..3 and what each means":"Labels & descriptions";
+  $("#addLabel").style.display=fixed?"none":"";
+  rows.forEach(([n,d])=>{const r=document.createElement("div");r.className="lrow";
+    r.innerHTML=`<input class="name" type="text" value="${n.replace(/"/g,'&quot;')}" ${fixed?'readonly':''} placeholder="label">
+      <input class="desc" type="text" value="${d.replace(/"/g,'&quot;')}" placeholder="description">${fixed?'':'<button type="button" class="rm">×</button>'}`;
+    box.appendChild(r);}); box.querySelectorAll(".rm").forEach(b=>b.onclick=()=>b.parentElement.remove());}
+$("#addLabel").onclick=()=>{const r=document.createElement("div");r.className="lrow";
+  r.innerHTML=`<input class="name" type="text" placeholder="label"><input class="desc" type="text" placeholder="description"><button type="button" class="rm">×</button>`;
+  r.querySelector(".rm").onclick=()=>r.remove();$("#labels").appendChild(r);};
+$("#mode").querySelectorAll("button").forEach(b=>b.onclick=()=>{mode=b.dataset.m;
+  $("#mode").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));$("#text").value=EXAMPLE[mode];renderLabels();});
+$("#risk").querySelectorAll("button").forEach(b=>b.onclick=()=>$("#risk").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b)));
+function tierClass(t){return t==="auto"?"b-auto":t==="verify"?"b-verify":"b-review";}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function render(d){
+  if(d.error){$("#out").innerHTML=`<div class="card"><div class="err">⚠ ${esc(d.error)}</div></div>`;return;}
+  const pct=v=>(v/10).toFixed(1)+"%";
+  let bars=Object.entries(d.p).map(([n,v])=>`<div class="bar"><div class="bn" title="${esc(n)}">${esc(n)}</div>
+    <div class="bt"><div class="bf" style="width:${Math.min(100,v/10)}%"></div></div><div class="bv">${pct(v)}</div></div>`).join("");
+  let extra="";
+  if(d.mode==="yesno")extra=`<div class="meta">P(yes) = <b>${pct(d.p.yes||0)}</b></div>`;
+  if(d.mode==="score")extra=`<div class="meta">expected rank = <b>${(d.expected).toFixed(2)}</b></div>`;
+  const cov=d.known?` · known, coverage ${d.coverage[0]}/${d.coverage[1]}`:"";
+  let lanes=`<div class="lane"><div class="who">memory</div><div class="what">judge → <b>${esc(d.best)}</b> at ${pct(d.p_best)}${cov}</div><div class="ms">${d.t_lookup} ms</div></div>`;
+  if(d.xlm)lanes+=`<div class="lane"><div class="who">worker</div><div class="what">XLM → <b>${esc(d.xlm)}</b></div><div class="ms">${d.t_xlm} ms</div></div>`;
+  let note="";
+  if(d.disputed)note=`<div class="note note-review">⚠ DISPUTED — the XLM contradicted a confident memory; held for review, not learned.</div>`;
+  else if(d.held!=null)note=`<div class="note note-hold">⏸ HELD — teacher margin ${d.held}‰ below the S1_LEARN gate; answered but not learned (work/pending.tsv).</div>`;
+  else if(d.recorded)note=`<div class="note note-ok">✓ memory learned this as <b>${esc(d.recorded)}</b></div>`;
+  $("#out").innerHTML=`<div class="card"><div class="answer">${esc(d.answer)}</div>
+    <span class="badge ${tierClass(d.tier)}">${d.tier}</span><span class="meta">via ${esc(d.via)} · ${d.ms} ms</span>
+    ${extra}<div class="lanes">${lanes}</div><div class="bars">${bars}</div>${note}
+    <details><summary>raw response</summary><pre>${esc(JSON.stringify(d,null,2))}</pre></details></div>`;
+}
+$("#go").onclick=async()=>{
+  const labels=[...document.querySelectorAll("#labels .lrow")].map(r=>({name:r.querySelector(".name").value.trim(),desc:r.querySelector(".desc").value.trim()})).filter(l=>l.name);
+  const body={mode,text:$("#text").value,risk:[...$("#risk").querySelectorAll("button")].find(b=>b.getAttribute("aria-pressed")==="true").dataset.r,train:$("#train").checked,labels};
+  const btn=$("#go");btn.disabled=true;btn.textContent="Deciding…";
+  try{const r=await fetch("/api/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});render(await r.json());}
+  catch(e){render({error:String(e)});} btn.disabled=false;btn.textContent="Decide";
+};
+$("#pingWorker").onclick=async()=>{const btn=$("#pingWorker"),hint=$("#pingHint"),out=$("#workerOut");btn.disabled=true;hint.textContent="checking…";
+  try{const j=await (await fetch("/api/worker-status")).json();out.hidden=false;out.textContent=JSON.stringify(j,null,2);
+    hint.textContent=j.error?"unreachable":(j.ready?"ready · "+(j.engine_tier||""):(j.status_line||"responded"));}
+  catch(e){out.hidden=false;out.textContent=String(e);hint.textContent="error";} btn.disabled=false;};
+fetch("/api/host").then(r=>r.json()).then(j=>{$("#host").textContent=j.host||"(unset)";$("#learn").textContent=j.learn;$$(".uiport").forEach(e=>e.textContent=j.port);});
+renderLabels();
+</script>
+</body></html>

@@ -1,6 +1,6 @@
 # 00_embed_check.mnd -- the first sentence through the worker: text in, vector out
 #
-#   ./00_embed_check.sh "Any sentence, in any of XLM-R's languages."
+#   printf '%s\n' "Any sentence, in any of XLM-R's languages." > work/q/text.txt && maned-run 00_embed_check.mnd
 #
 # spm() tokenizes work/q/text.txt here with the checkpoint's SentencePiece
 # model (the native Unigram tokenizer: the same ids as the Hugging Face

@@ -1,7 +1,7 @@
 # 01_lookup.mnd -- the fast lane: text in, a decision out, from the memory alone
 #
 #   ./01_lookup.sh "the text" urgent later careful      (maned-run: text from work/q/text.txt)
-#   ./07_serve.sh start                                 (maned-serve: text from the request)
+#   maned-serve 01_lookup.mnd --port 8787               (maned-serve: text from the request)
 #
 # ONE program for both. spm() tokenizes the text with XLM-R's SentencePiece
 # model - a file under maned-run, the request body under maned-serve and the

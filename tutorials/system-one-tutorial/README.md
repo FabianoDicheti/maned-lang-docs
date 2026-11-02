@@ -42,11 +42,12 @@ maned-serve 01_lookup.mnd --port 8787 &            # the fast lane as a service
 | `policy.csv` | per risk level: `t_auto`, `t_verify`, `t_dispute` (permille), `sharpen` |
 | `corpus/` | three labels with descriptions; 108 messages, 36 variants, 36 unseen, in en/pt/de |
 | `consumers/python/decide.py` | the loop's reference: `decide()`, serving and training modes, the verifier, a command line |
-| `consumers/kotlin/`, `consumers/rust/` | the serving loop in Kotlin (Gradle) and Rust (Cargo) |
+| `consumers/kotlin/`, `consumers/rust/` | the same loop, CLI and review workflow in Kotlin (Gradle) and Rust (Cargo) — feature-equal with the Python reference |
 | `*.sh` | the shell runbook used to produce the tutorial's outputs: `_common.sh` and one driver per lane (`01_lookup.sh`, `02_xlm_classify.sh`, `03_record.sh`), the loop (`04_query.sh`), the evaluation (`05_eval.sh`), the rebuild (`06_rebuild.sh`). Optional: the page shows each step as plain commands |
 
 Generated files live under `work/` and are never committed: the memory
-(`memory.dqt`), the dataset (`memory.tsv`), the label registry
+(`memory.dqt`), the dataset (`memory.tsv`), the review queues
+(`review.tsv`, `pending.tsv`), the label registry
 (`labels.tsv`), the descriptions (`descs.tsv`, `labels_u.csv`), the
 current request (`q/`), the downloads (the tokenizer model, the
 statistics `xlm-stats.dqt`, the model).
@@ -64,19 +65,59 @@ configured for it.
 python3 consumers/python/decide.py [--risk low|medium|high] [--train] "text" label[=description]...
 python3 consumers/python/decide.py --yesno "text" "statement" ["negation"]
 python3 consumers/python/decide.py --score "text" 1="..." 2="..." 3="..."
-cd consumers/kotlin && gradle run
-cd consumers/rust && cargo run
+python3 consumers/python/decide.py --pending                  # answers held for review
+python3 consumers/python/decide.py --resolve [accept]         # confirm them, then learn
+
+# the Kotlin and Rust apps take the SAME arguments and flags (--risk --train --yesno --score --pending --resolve):
+cd consumers/kotlin && gradle run --args='"Our servers crashed again." urgent later careful'
+cd consumers/rust   && cargo run -- "Our servers crashed again." urgent later careful
+cd consumers/kotlin && gradle run --args='--pending'      # or --resolve accept
+cd consumers/rust   && cargo run -- --resolve             # confirm held answers interactively
+
+# a browser UI (Decide + API tabs) — each app serves the same page, no extra dependencies:
+python3 consumers/python/test_ui.py                       # -> http://127.0.0.1:8808 (S1_UI_PORT)
+cd consumers/rust   && cargo run -- --serve 8808          # stdlib TcpListener
+cd consumers/kotlin && gradle run --args='--serve 8808'   # JDK com.sun.net.httpserver
 ```
+
+The Rust build links `libmaned_c` (set `MANED_LIB_DIR=/path/to/maned-capi/lib` if it is not
+on the default search path). The Kotlin app needs `dev.maned:maned:0.4.3` from Maven Central (0.4.2 bundles an
+engine that cannot load a host-side `spm()` initializer).
 
 The binding needs the engine library at the same version as the tools;
 each binding's README says where it looks for it (`MANEDPY_LIB`,
 `-Dmaned.library.path`, `MANED_LIB_DIR`).
 
+## When the memory asks the worker, and what it learns
+
+The memory auto-answers only a text it has really seen: tier `auto` needs the best label to
+cover at least 70 % of the text's features, not just a confident judge score. An unfamiliar
+text the judge is merely sure about (for example "the house is on fire", which the raw judge
+scores `later`) drops to tier `verify`, so the worker checks it and its label wins. This keeps
+the Markov judge from confidently answering text it has never seen.
+
+What the memory learns from the worker is gated too. In normal use a worker label is written
+to memory only when the teacher is confident: the cosine margin between its best and
+second-best candidate label must clear `S1_LEARN` (permille of cosine, default 70). A less
+confident answer is still returned, then held in `work/pending.tsv` instead of learned, so one
+shaky zero-shot guess cannot poison the memory. The default is calibrated on this corpus:
+ungated, only 70 % of the worker's labels on novel text are correct; at `S1_LEARN=70` about
+87 % of what the memory actually learns is correct (roughly half the worker's mistakes are held
+for review instead of written in), and raising it to 80–90 lifts learned-label precision to
+93–96 % while holding more for review. Lower it toward 40 to learn faster and review less.
+Confirm held answers with `decide.py
+--resolve` (Enter accepts the teacher's label, or type the right one; `--resolve accept` takes
+them all). Training mode (`--train`, or `S1_XLM=always`) is the exception: you are deliberately
+teaching, so every worker label is learned. The Kotlin and Rust apps are feature-equal with the
+Python reference — the same confidence gate, verifier, training mode, `--pending`/`--resolve`
+review queue and command line. Set `S1_LEARN` in `~/.config/maned/xlm.env` to tune it.
+
 ## Measured
 
 288 requests over four passes on a 4-core AVX2 worker, training mode:
-105 of 108 repeated texts answered from memory; on 36 unseen texts the
-judge alone was right 69 % of the time (the XLM 83 %) and all 8 of its
-confident answers were right; the verifier disputed 11 of the XLM's
-labels and was right 8 times; the memory rebuilt from its text file byte
-for byte. The page has the whole table and how to read it.
+all 108 repeated texts and all 36 variants were answered from memory; on
+36 unseen texts the memory auto-answered only the 2 it covered well (both
+right) and sent the rest to the worker, so the system matched the XLM's
+83 % while the judge never answered an unfamiliar text on its own; the
+memory rebuilt from its text file byte for byte. The page has the whole
+table and how to read it.

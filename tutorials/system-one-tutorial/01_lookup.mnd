@@ -1,7 +1,7 @@
 # 01_lookup.mnd -- the fast lane: text in, a decision out, from the memory alone
 #
 #   ./01_lookup.sh "the text" urgent later careful      (maned-run: text from work/q/text.txt)
-#   ./07_serve.sh start                                 (maned-serve: text from the request)
+#   maned-serve 01_lookup.mnd --port 8787               (maned-serve: text from the request)
 #
 # ONE program for both. spm() tokenizes the text with XLM-R's SentencePiece
 # model - a file under maned-run, the request body under maned-serve and the
@@ -223,9 +223,12 @@ calc::lambda_flow lookup(msg, req, policy, counts, ntexts, rb, r32, r4, k) {
     p_best p_second sub margin =
 
     # --- the tier, and the expected rank for Score questions
-    p_best t_auto >= ga =
-    p_best t_verify >= gv =
-    ga gv add tier =
+    p_best t_auto >= ga0 =
+    c1 c3 mul covered =                       # the best label covers >= 70% of the text's features (c1)
+    covered ga0 mul ga =                      # and the text has >= 3 features (c3): AUTO needs that
+    p_best t_verify >= gv =                   # coverage, not just a confident judge. A thinly covered
+    ga gv add tier =                          # text the judge is merely sure about caps at VERIFY,
+    # (c1, c3 are the coverage and feature-count tests computed for the known check above)
     ordv transpose ordc =
     p ordc matmul expected =                  # permille * rank
 } return best, p_best, margin, tier, expected, known, kbest, cov_best, cov_second, q, t_dispute, informed, p;

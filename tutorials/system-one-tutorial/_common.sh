@@ -129,6 +129,14 @@ xlm() {
   xlm_name=$(sed -n "$((row + 1))p" work/descs.tsv | cut -f1)
   xlm_col=$(col_of "$xlm_name")
   xlm_cos=$(nth "$(val s)" "$row" | awk '{printf "%.3f", $1 / 1000000}')
+  # the teacher's confidence: the cosine margin (x10^6) between the best and the
+  # second-best candidate LABEL (max cosine over each label's description rows)
+  xlm_margin=$(awk -v names=" $* " -v s="$(val s)" '
+    BEGIN { split(s, sc, " ") }
+    index(names, " " $1 " ") { if (!($1 in m) || sc[FNR] > m[$1]) m[$1] = sc[FNR] }
+    END { n = 0; for (k in m) v[n++] = m[k]
+          for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) if (v[j] > v[i]) { t = v[i]; v[i] = v[j]; v[j] = t }
+          print (n >= 2 ? v[0] - v[1] : 1000000000) }' work/descs.tsv)
 }
 # record NAME -> the memory learns (text, NAME): work/memory.dqt is rewritten by
 # the program, and one line goes to work/memory.tsv, the dataset

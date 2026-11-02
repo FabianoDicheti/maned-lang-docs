@@ -59,8 +59,8 @@ Package on [PyPI](https://pypi.org/project/manedpy/); source at
 
 ```kotlin
 dependencies {
-    implementation("dev.maned:maned:0.4.2")
-    runtimeOnly("dev.maned:maned:0.4.2:macos-universal")   // or linux-x86_64 / linux-aarch64
+    implementation("dev.maned:maned:0.4.3")
+    runtimeOnly("dev.maned:maned:0.4.3:macos-universal")   // or linux-x86_64 / linux-aarch64
 }
 ```
 
@@ -132,7 +132,7 @@ to Bark. Crates on [crates.io](https://crates.io/crates/maned) (plus
 | | Install | Native library | Platforms |
 |---|---|---|---|
 | [Python](integration/python.html) | `pip install manedpy` | bundled in the wheel | macOS (universal), Linux x86-64 / arm64 |
-| [Kotlin](integration/kotlin.html) | `dev.maned:maned:0.4.2` | bundled in the classifier jar | JDK 22+, macOS / Linux x86-64 / arm64 |
+| [Kotlin](integration/kotlin.html) | `dev.maned:maned:0.4.3` | bundled in the classifier jar | JDK 22+, macOS / Linux x86-64 / arm64 |
 | [Rust](integration/rust.html) | `cargo add maned` | linked at build from the engine install | macOS, Linux x86-64 / arm64 |
 
 Windows is not supported, matching the [toolchain](install.html).

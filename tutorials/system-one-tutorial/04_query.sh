@@ -7,6 +7,8 @@
 #        ./04_query.sh --yesno "Please wire the deposit today." "This message asks for money to be sent" ["its negation"]
 #        ./04_query.sh --score "The kitchen will be repainted next spring." 1="no action" 2="look this week" 3="act today"
 #        S1_NO_RECORD=1 ./04_query.sh ...      ask, do not learn
+#        S1_LEARN=70 ./04_query.sh ...         min teacher cosine margin (permille) to learn; a
+#                                              less confident first answer is held in work/pending.tsv
 #        S1_XLM=always ./04_query.sh ...       TRAINING MODE: the XLM runs on every request and its
 #                                              label is learned even when the memory answered alone;
 #                                              the answer does not change. 05_eval.sh measures in it.
@@ -24,7 +26,9 @@
 #             it with a label the memory gives less than t_dispute - the
 #             pair goes to work/review.tsv instead of being learned
 #          5. 03_record.mnd: whenever the XLM ran, its label is learned,
-#             unless the text was known with that label already
+#             unless the text was known with that label already, OR the
+#             teacher's cosine margin was below S1_LEARN (permille) - then the
+#             answer is held in work/pending.tsv, not learned (resolve later)
 #        One line per request goes to work/decisions.tsv.
 # A yes/no question is the labels `yes` (the statement) and `no` (its
 # negation, given or generated); a Score question's label names are the ranks.
@@ -44,7 +48,7 @@ decide() {
   done
   lookup "$risk" $reqargs
   best_name=$(name_of "$best"); kbest_name=$(name_of "$kbest")
-  answer=""; via=""; how=""; xlm_name=""; xlm_col=""; xlm_cos=""; t_xlm=0; p_xlm=""; disputed=0; recorded=""
+  answer=""; via=""; how=""; xlm_name=""; xlm_col=""; xlm_cos=""; xlm_margin=""; t_xlm=0; p_xlm=""; disputed=0; recorded=""; held=""
   if [ "$known" = 1 ]; then answer=$kbest_name; via="memory:known"; how=0
   elif [ "$tier" = 2 ]; then answer=$best_name; via="memory:auto"; how=1
   fi
@@ -57,11 +61,15 @@ decide() {
     fi
     p_xlm=$(nth "$p" "$xlm_col")
     if [ "$informed" = 1 ] && [ "$tier" = 2 ] && [ "$best" != "$xlm_col" ] && [ "$p_xlm" -lt "$t_dispute" ]; then disputed=1; fi
+    learn=${S1_LEARN:-70}; confident=0
+    if [ "${S1_XLM:-}" = always ] || { [ "$tier" = 1 ] && [ "$best" = "$xlm_col" ]; } || [ "${xlm_margin:-0}" -ge "$((learn * 1000))" ]; then confident=1; fi
     if [ "${S1_NO_RECORD:-}" != 1 ]; then
       if [ "$disputed" = 1 ]; then
         printf '%s\t%s\t%s\t%s\t%s\n' "$xlm_name" "$best_name" "$p_best" "$p_xlm" "$(cat work/q/text.txt)" >> work/review.tsv
       elif [ "$known" = 1 ] && [ "$xlm_name" = "$kbest_name" ]; then :
-      else record "$xlm_name"; recorded=$xlm_name; fi
+      elif [ "$confident" = 1 ]; then record "$xlm_name"; recorded=$xlm_name
+      else held=$((xlm_margin / 1000))
+        printf '%s\t%s\t%s\t%s\n' "$xlm_name" "$held" "$(echo $names | tr ' ' '|')" "$(cat work/q/text.txt)" >> work/pending.tsv; fi
     fi
   fi
   t_answer=$t_lookup; [ "$how" -ge 2 ] && t_answer=$((t_lookup + t_xlm))
@@ -77,6 +85,7 @@ report() {
   [ -n "$xlm_name" ] && printf 'xlm     %-10s cosine %s   %s ms\n' "$xlm_name" "$xlm_cos" "$t_xlm"
   printf 'ANSWER  %-10s via %s in %s ms' "$answer" "$via" "$t_answer"
   [ -n "$recorded" ] && printf '  (recorded as %s)' "$recorded"
+  [ -n "$held" ] && printf '  HELD: low teacher confidence (margin %s%%o) -> work/pending.tsv, not learned' "$held"
   [ "$disputed" = 1 ] && printf '  DISPUTED: the memory says %s at %s%%o, the XLM'"'"'s %s has %s%%o -> work/review.tsv, not learned' "$best_name" "$p_best" "$xlm_name" "$p_xlm"
   printf '\n'
 }
