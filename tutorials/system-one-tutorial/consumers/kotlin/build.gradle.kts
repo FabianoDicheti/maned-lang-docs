@@ -2,12 +2,20 @@ plugins {
     kotlin("jvm") version "2.3.21"
     application
 }
-repositories { mavenCentral() }
+repositories { mavenCentral(); mavenLocal() }   // mavenLocal second: a locally published dev.maned also resolves
+
+// the jar with the engine library for this machine (0.4.3 or newer: its library loads the host-side spm() initializer)
+val os = System.getProperty("os.name").lowercase()
+val arch = System.getProperty("os.arch").lowercase()
+val classifier = when {
+    os.contains("mac") -> "macos-universal"
+    arch == "aarch64" || arch == "arm64" -> "linux-aarch64"
+    else -> "linux-x86_64"
+}
 
 dependencies {
-    implementation("dev.maned:maned:0.4.2")
-    // the engine library for this machine; linux-x86_64 and linux-aarch64 exist too
-    runtimeOnly("dev.maned:maned:0.4.2:macos-universal")
+    implementation("dev.maned:maned:0.4.3")
+    runtimeOnly("dev.maned:maned:0.4.3:$classifier")
 }
 
 application {

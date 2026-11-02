@@ -58,10 +58,10 @@ Then apply:
 - **Windows**: native Windows is not supported. It works inside **WSL** (Ubuntu 22.04 or newer);
   everything below then runs in the WSL terminal as Linux. If they do not have WSL, stop here and
   point them at Microsoft's WSL install page.
-- **kotlin**: this edition needs `dev.maned:maned:0.4.3`, which is **not on Maven Central yet**.
-  Check `ls ~/.m2/repository/dev/maned/maned/0.4.3` and `which gradle`. If either is missing,
-  say so plainly and offer python (same project, same programs, same browser UI). Do not
-  promise Kotlin will work.
+- **kotlin**: this edition needs `dev.maned:maned:0.4.3` (released 2026-11-02) and Gradle 8+. Check
+  `which gradle`; the build in step 5 resolves the artifact from Maven Central (or from `~/.m2`
+  if it was published locally). If the build cannot find 0.4.3, say so plainly and offer
+  python (same project, same programs, same browser UI).
 - **No worker**: quick path now; the full path can come any time later.
 
 ## 2. The edition folder
@@ -152,10 +152,8 @@ printf 'export MANED_LIB_DIR=%s\nexport DYLD_LIBRARY_PATH=%s\nexport LD_LIBRARY_
 ```
 Every later Rust command starts with `. work/rust.env` (build and run both need it).
 
-**kotlin** - only if step 1 found the 0.4.3 artifact and Gradle. The classifier jar carries the
-engine library, so no capi download. On Linux, edit the `runtimeOnly` line of
-`consumers/kotlin/build.gradle.kts` from `macos-universal` to `linux-x86_64` or `linux-aarch64`
-(use the Edit tool, show the diff). Then:
+**kotlin** - the build file picks the jar with the engine library for this OS and CPU itself, so
+there is nothing to download or edit:
 
 **you**
 ```sh
@@ -300,9 +298,10 @@ cd <edition folder> && . ~/.config/maned/xlm.env && maned-run 00_provision.mnd
 ```sh
 . ~/.config/maned/xlm.env && .venv/bin/python consumers/python/decide.py "The building alarm is going off and smoke is coming from the server room." urgent later careful
 ```
-Expected: `via xlm` and `(recorded as urgent)`, in a few hundred ms. Run the **same** text again:
-`via memory:known`, a few ms. Explain: *the worker answered once and the memory wrote it down;
-from now on this text needs no worker.* If the line says `HELD ... not learned`, the teacher was
+Expected: `xlm  urgent  <N> ms` in the transcript, `via xlm` or `via memory:verified` (the memory
+guessed, the worker confirmed), and `(recorded as urgent)`, in a few hundred ms. Run the **same**
+text again: `via memory:known`, a few ms. Explain: *the worker answered once and the memory wrote
+it down; from now on this text needs no worker.* If the line says `HELD ... not learned`, the teacher was
 not sure enough (the gate `S1_LEARN`, default 70); `--pending` lists those and
 `--resolve` confirms them. Rust and Kotlin take the same arguments after `--` / `--args=`.
 
@@ -339,6 +338,6 @@ for a plain-words tour. The browser UI from step 6 is the easiest way to keep ex
 | `NOT READY: weights` on the worker | expected before provisioning | step 9 |
 | `dyld: Library not loaded ... libmaned_c` / `error while loading shared libraries` | rust loader path | prefix `. work/rust.env` |
 | cargo: `libmaned_c` not found, paths tried ... | capi tarball missing | step 5 rust |
-| gradle: `Could not find dev.maned:maned:0.4.3` | not on Maven Central | step 1's kotlin note; offer python |
+| gradle: `Could not find dev.maned:maned:0.4.3` | no network, or a Central sync still pending | retry later; step 1's kotlin note; offer python |
 | `Address already in use` on 8808 | another UI running | `S1_UI_PORT=8809` or `--serve 8809` |
 | `HELD low teacher confidence` | not an error | `--pending`, `--resolve` |

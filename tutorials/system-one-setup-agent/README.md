@@ -42,7 +42,7 @@ The assistant installs **maned 0.4.2+** and the binding for your language.
 |---|---|
 | Python | complete. A virtual environment in the edition folder; the wheel bundles the engine. |
 | Rust | complete. The assistant fetches the `maned-capi` tarball the `maned` crate links against. |
-| Kotlin | **not yet**: needs `dev.maned:maned:0.4.3`, which is not on Maven Central. `/setup` says so and offers Python. |
+| Kotlin | complete with `dev.maned:maned:0.4.3` (its jar carries the engine library; the build picks the one for your OS and CPU). Needs JDK 17+ and Gradle 8+. |
 
 ## What it will and won't do for you
 
