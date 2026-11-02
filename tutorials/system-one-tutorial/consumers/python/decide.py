@@ -33,6 +33,7 @@ os.chdir(PROJECT)                      # every path in the .mnd files is relativ
 MANED_RUN = os.environ.get("MANED_RUN", "maned-run")
 TIERS = ["review", "verify", "auto"]
 RISK = {"low": 0, "medium": 1, "high": 2}
+DEFAULT_LEARN = 70                     # min teacher cosine margin to learn (permille); override with S1_LEARN. 70 calibrated on the worker: ~87% of learned labels right vs 70% ungated (see README).
 
 
 def load_env():
@@ -92,6 +93,12 @@ def values(part):
     return [int(round(float(x) * 1000)) for x in part.decode().strip().split(",")]
 
 
+# the lookup opens work/q/text.txt and work/q/req.csv when it loads; decide() rewrites them on
+# every call, so a fresh checkout only needs the two placeholders to exist
+os.makedirs("work/q/out", exist_ok=True)
+for _f, _blank in (("work/q/text.txt", "\n"), ("work/q/req.csv", ("0," * 31 + "0\n") * 4)):
+    if not os.path.exists(_f):
+        open(_f, "w").write(_blank)
 lookup = mnd.load("01_lookup.mnd")
 
 
@@ -109,7 +116,7 @@ def decide(text, labels, risk="medium", ordinal=None, train=False):
     best, p_best, tier, known, kbest = v["best"][0], v["p_best"][0], v["tier"][0], v["known"][0], v["kbest"][0]
     p, label = v["p"], lines("work/labels.tsv")
     answer = via = xlm = None
-    how, t_xlm, recorded, disputed, p_xlm = 3, 0, None, False, 0
+    how, t_xlm, recorded, disputed, p_xlm, held = 3, 0, None, False, 0, None
     if known:
         answer, via, how = label[kbest], "memory:known", 0
     elif tier == 2:
@@ -120,9 +127,21 @@ def decide(text, labels, risk="medium", ordinal=None, train=False):
         descs = [l.split("\t", 1)[0] for l in lines("work/descs.tsv")]
         open("work/q/cand_d.csv", "w").write(",".join("0.001" if d in names else "0.000" for d in descs) + "\n")
         t1 = time.time()
-        xcol = col_of(descs[run_mnd("02_xlm_classify.mnd")["best"][0]])
+        cls = run_mnd("02_xlm_classify.mnd")
+        xcol = col_of(descs[cls["best"][0]])
         t_xlm = int((time.time() - t1) * 1000)
         xlm, p_xlm = label[xcol], p[xcol]
+        # the teacher's confidence: the cosine margin between its best and second-best
+        # candidate LABEL (max cosine over each label's descriptions). s is x10^6 raw.
+        s = cls.get("s", [])
+        bylabel = {}
+        for i, dn in enumerate(descs):
+            if dn in names and i < len(s):
+                bylabel[dn] = max(bylabel.get(dn, -10 ** 9), s[i])
+        topc = sorted(bylabel.values(), reverse=True)
+        margin = (topc[0] - topc[1]) if len(topc) >= 2 else 10 ** 12
+        learn = int(os.environ.get("S1_LEARN", DEFAULT_LEARN))
+        confident = train or (tier == 1 and best == xcol) or margin >= learn * 1000  # training learns unconditionally; the gate is for normal, unprompted learning
         if answer is None:
             if tier == 1 and best == xcol:
                 answer, via, how = label[best], "memory:verified", 2
@@ -133,16 +152,22 @@ def decide(text, labels, risk="medium", ordinal=None, train=False):
         if disputed:
             open("work/review.tsv", "a", encoding="utf-8").write("%s\t%s\t%d\t%d\t%s\n" % (xlm, label[best], p_best, p_xlm, text))
         elif not (known and xlm == label[kbest]):
-            open("work/q/label.csv", "w").write("%d\n" % xcol)
-            run_mnd("03_record.mnd")                 # rewrites work/memory.dqt
-            open("work/memory.tsv", "a", encoding="utf-8").write("%s\t%s\n" % (xlm, text))
-            recorded = xlm
-            lookup.close()
-            lookup = mnd.load("01_lookup.mnd")      # the memory it loaded has changed on disk
+            if confident:
+                open("work/q/label.csv", "w").write("%d\n" % xcol)
+                run_mnd("03_record.mnd")                 # rewrites work/memory.dqt
+                open("work/memory.tsv", "a", encoding="utf-8").write("%s\t%s\n" % (xlm, text))
+                recorded = xlm
+                lookup.close()
+                lookup = mnd.load("01_lookup.mnd")      # the memory it loaded has changed on disk
+            else:
+                # the teacher was too unsure to learn from unprompted: hold it for review
+                held = margin // 1000
+                open("work/pending.tsv", "a", encoding="utf-8").write(
+                    "%s\t%d\t%s\t%s\n" % (xlm, held, "|".join(names), text))
     t_answer = t_lookup + (t_xlm if how >= 2 else 0)
     return {"answer": answer, "via": via, "tier": TIERS[tier], "known": bool(known),
             "p": {n: p[col_of(n)] for n in names}, "expected": v["expected"][0] / 1000.0,
-            "xlm": xlm, "recorded": recorded, "disputed": disputed, "ms": t_answer,
+            "xlm": xlm, "recorded": recorded, "disputed": disputed, "held": held, "ms": t_answer,
             # the lookup's own numbers, for a transcript or an evaluation row
             "best": label[best], "p_best": p_best, "coverage": (v["cov_best"][0], v["q"][0]),
             "raw": [how, best, p_best, tier, known, p_xlm, int(disputed), t_answer, t_xlm, t_lookup]}
@@ -161,12 +186,73 @@ def transcript(d):
         out += "  (recorded as %s)" % d["recorded"]
     if d["disputed"]:
         out += "  DISPUTED: held back for review, not learned"
+    if d.get("held") is not None:
+        out += "\nHELD    low teacher confidence (margin %d%%o) -> work/pending.tsv, not learned" % d["held"]
     return out
 
 
+def show_pending():
+    """print the answers held for review (work/pending.tsv): teacher label, margin, candidates, text"""
+    rows = lines("work/pending.tsv")
+    if not rows:
+        print("nothing held for review")
+        return
+    print("teacher\tmargin\tcandidates\ttext")
+    for r in rows:
+        print(r)
+
+
+def commit(name, text):
+    """record one confirmed (text, label) into the memory, the way decide's record path does"""
+    global lookup
+    os.makedirs("work/q", exist_ok=True)
+    open("work/q/text.txt", "w", encoding="utf-8").write(text + "\n")
+    open("work/q/label.csv", "w").write("%d\n" % col_of(name))
+    run_mnd("03_record.mnd")
+    open("work/memory.tsv", "a", encoding="utf-8").write("%s\t%s\n" % (name, text))
+    lookup.close()
+    lookup = mnd.load("01_lookup.mnd")
+
+
+def resolve(args):
+    """learn the held answers. `--resolve` confirms each one; `--resolve accept` takes the
+    teacher's label for every row without asking. A corrected label, or `s` to skip, is read
+    from the keyboard; skipped rows stay in the queue."""
+    accept_all = bool(args) and args[0] == "accept"
+    rows = lines("work/pending.tsv")
+    if not rows:
+        print("nothing held for review")
+        return
+    kept = []
+    for r in rows:
+        f = r.split("\t")
+        if len(f) < 4:
+            continue
+        teacher, margin, cands, text = f[0], f[1], f[2], f[3]
+        name = teacher
+        if not accept_all:
+            try:
+                ans = input("\n%s\n  candidates: %s\n  teacher: %s (margin %s%%o)\n  [Enter]=accept, a label, or s=skip: "
+                            % (text, cands.replace("|", ", "), teacher, margin)).strip()
+            except EOFError:
+                ans = "s"
+            if ans == "s":
+                kept.append(r)
+                continue
+            if ans:
+                name = ans
+        commit(name, text)
+        print("  learned: %s" % name)
+    open("work/pending.tsv", "w", encoding="utf-8").write("".join(x + "\n" for x in kept))
+
+
 def main(argv):
-    """the command line: a Choice, yes/no or Score question, or the three demo questions"""
+    """the command line: a Choice, yes/no or Score question, the review queue, or the demos"""
     load_env()
+    if argv and argv[0] == "--pending":
+        return show_pending()
+    if argv and argv[0] == "--resolve":
+        return resolve(argv[1:])
     risk, kind, train = "medium", "choice", False
     while argv and argv[0].startswith("--"):
         flag = argv.pop(0)

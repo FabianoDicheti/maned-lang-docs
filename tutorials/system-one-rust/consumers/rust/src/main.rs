@@ -134,7 +134,16 @@ fn transcript(d: &Decision) -> String {
 struct SystemOne { lookup: maned::Script }
 
 impl SystemOne {
-    fn open() -> Self { SystemOne { lookup: maned::load(project().join("01_lookup.mnd")).expect("01_lookup.mnd") } }
+    fn open() -> Self {
+        // the lookup opens work/q/text.txt and work/q/req.csv when it loads; decide() rewrites them
+        // on every call, so a fresh checkout only needs the two placeholders to exist
+        fs::create_dir_all(project().join("work/q/out")).expect("work/q/out");
+        for (f, blank) in [("work/q/text.txt", "\n".to_string()), ("work/q/req.csv", ("0,".repeat(31) + "0\n").repeat(4))] {
+            let p = project().join(f);
+            if !p.is_file() { fs::write(&p, blank).expect(f); }
+        }
+        SystemOne { lookup: maned::load(project().join("01_lookup.mnd")).expect("01_lookup.mnd") }
+    }
 
     fn reload(&mut self) { self.lookup = maned::load(project().join("01_lookup.mnd")).expect("reload"); }
 

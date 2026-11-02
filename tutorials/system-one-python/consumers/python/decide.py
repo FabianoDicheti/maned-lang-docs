@@ -93,6 +93,12 @@ def values(part):
     return [int(round(float(x) * 1000)) for x in part.decode().strip().split(",")]
 
 
+# the lookup opens work/q/text.txt and work/q/req.csv when it loads; decide() rewrites them on
+# every call, so a fresh checkout only needs the two placeholders to exist
+os.makedirs("work/q/out", exist_ok=True)
+for _f, _blank in (("work/q/text.txt", "\n"), ("work/q/req.csv", ("0," * 31 + "0\n") * 4)):
+    if not os.path.exists(_f):
+        open(_f, "w").write(_blank)
 lookup = mnd.load("01_lookup.mnd")
 
 

@@ -1,0 +1,16 @@
+urgent	This message needs action right now: an outage, an emergency, a deadline today.
+urgent	The system is down and customers are affected, fix it immediately, we are losing money.
+urgent	Emergency, act now: evacuate, call them, renew it today or we lose it.
+later	This message is low priority and can be reviewed later: a newsletter, a routine update, nothing due.
+later	No action needed, just sharing photos, news and a podcast for whenever you have a spare moment.
+later	A routine announcement about the office: coffee machine, parking lot, book club, plants.
+careful	This message must be read carefully: a contract, a policy change, legal or financial terms.
+careful	Please read the attached contract, policy and insurance terms carefully before you sign.
+careful	Legal and financial details that must be checked line by line: clauses, fees, audits, interest rates.
+yes	This message asks for money to be sent
+no	It is not the case that this message asks for money to be sent
+1	no action
+2	look this week
+3	act today
+later	This message can wait: an update, a newsletter, something for next week.
+careful	This message needs care before acting: a contract, a legal clause, a payment detail.

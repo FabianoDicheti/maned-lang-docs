@@ -91,6 +91,13 @@ fun transcript(d: Decision): String {
     return sb.toString()
 }
 
+// the lookup opens work/q/text.txt and work/q/req.csv when it loads; decide() rewrites them on
+// every call, so a fresh checkout only needs the two placeholders to exist
+private val placeholders = run {
+    wf("work/q/out").mkdirs()
+    wf("work/q/text.txt").let { if (!it.isFile) it.writeText("\n") }
+    wf("work/q/req.csv").let { if (!it.isFile) it.writeText(("0,".repeat(31) + "0\n").repeat(4)) }
+}
 var lookup = Maned.load(wf("01_lookup.mnd").path)
 
 fun decide(text0: String, labels: Map<String, String>, risk: String = "medium",
