@@ -2,5 +2,6 @@ work/
 consumers/kotlin/.gradle/
 consumers/kotlin/.kotlin/
 consumers/kotlin/build/
+consumers/kotlin/bin/
 consumers/rust/target/
 consumers/rust/Cargo.lock

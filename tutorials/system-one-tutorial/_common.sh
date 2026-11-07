@@ -63,9 +63,27 @@ name_of() { sed -n "$(( $1 + 1 ))p" work/labels.tsv; }   # column -> name
 # ---- descriptions, for the XLM path. Each (label, description) is embedded
 # ONCE on the worker (02_label_embed.mnd) and appended to work/descs.tsv
 # (name<TAB>description, row i) and work/labels_u.csv (its unit vector, row i).
+# the NLI lane (S1_WORKER=nli) keeps its own registry, work/descs_nli.tsv: the
+# description IS the hypothesis, nothing is embedded, and the XLM registry
+# (descs.tsv, row-aligned with labels_u.csv) is never touched by it.
+# the PAIR lane (S1_WORKER=pair) fills both: the description goes to the XLM
+# registry as usual, and the label's HYPOTHESIS - looked up by name in
+# $S1_HYPOTHESES (name<TAB>hypothesis), the description itself when the name
+# is not listed there - goes to the NLI one
+DESCS=work/descs.tsv; [ "${S1_WORKER:-xlmr}" = nli ] && DESCS=work/descs_nli.tsv
+DESCS_NLI=work/descs_nli.tsv
+register_hyp() {   # register_hyp NAME HYPOTHESIS
+  touch "$DESCS_NLI"
+  grep -qxF -- "$1$TAB$2" "$DESCS_NLI" || printf '%s\t%s\n' "$1" "$2" >> "$DESCS_NLI"
+}
 register_desc() {   # register_desc NAME DESCRIPTION
-  touch work/descs.tsv work/labels_u.csv
-  grep -qxF -- "$1$TAB$2" work/descs.tsv && return 0
+  touch "$DESCS" work/labels_u.csv
+  if [ "${S1_WORKER:-xlmr}" = nli ]; then register_hyp "$1" "$2"; return 0; fi
+  if [ "${S1_WORKER:-xlmr}" = pair ]; then
+    h=$(awk -F"$TAB" -v n="$1" '$1 == n { print $2; exit }' "${S1_HYPOTHESES:-/dev/null}")
+    register_hyp "$1" "${h:-$2}"
+  fi
+  grep -qxF -- "$1$TAB$2" "$DESCS" && return 0
   printf '%s\n' "$2" > work/q/new_descs.txt
   run_mnd 02_label_embed.mnd
   cat work/q/new_u.csv >> work/labels_u.csv
@@ -108,7 +126,7 @@ req() {
 # cand_d NAME... -> work/q/cand_d.csv: 1 for the description rows of the
 # candidates, 0 elsewhere (written as 0.001 so it lands as raw 1 at quantres 3)
 cand_d() {
-  cut -f1 work/descs.tsv | awk -v names=" $* " '{
+  cut -f1 "$DESCS" | awk -v names=" $* " '{
     printf "%s%s", (NR > 1 ? "," : ""), (index(names, " " $1 " ") ? "0.001" : "0.000") } END { print "" }' > work/q/cand_d.csv
 }
 
@@ -121,12 +139,23 @@ lookup() {
   kbest=$(val kbest); cov_best=$(val cov_best); cov_second=$(val cov_second); q=$(val q)
   t_dispute=$(val t_dispute); informed=$(val informed); expected=$(val expected); p=$(val p)
 }
-# xlm NAME... -> xlm_col xlm_name xlm_cos t_xlm   (the worker; descriptions registered first)
-xlm() {
+# xlm NAME... -> xlm_col xlm_name xlm_cos xlm_margin t_xlm   (the worker; descriptions registered first)
+# xlm_lane xlmr|nli NAME... -> the same, from ONE lane and its registry
+xlm_lane() {
+  lane=$1; shift
+  if [ "$lane" = nli ]; then DESCS=$DESCS_NLI; else DESCS=work/descs.tsv; fi
   cand_d "$@"
+  if [ "$lane" = nli ]; then   # the NLI lane (plan M5): the entailment worker, then its own program
+    tr ',' '\n' < work/q/cand_d.csv | awk '{ printf "%s%s", (NR > 1 ? "," : ""), ($1 > 0 ? "1.000" : "0.000") } END { print "" }' > work/q/cand_m.csv
+    tr ',' '\n' < work/q/cand_d.csv | awk '{ printf "%s%s", (NR > 1 ? "," : ""), "1.000" } END { print "" }' > work/q/cand_one.csv
+    t0=$(ms)
+    "${S1_PYTHON:-python3}" "${S1_NLI_DIR:-work/eval_suite}/nli_lane.py" || { echo "error: the NLI worker call failed" >&2; exit 1; }
+    run_mnd "${S1_NLI_DIR:-work/eval_suite}/02_nli_classify.mnd"; t_xlm=$(( $(ms) - t0 ))
+  else
   t0=$(ms); run_mnd 02_xlm_classify.mnd; t_xlm=$(( $(ms) - t0 ))
+  fi
   row=$(val best)
-  xlm_name=$(sed -n "$((row + 1))p" work/descs.tsv | cut -f1)
+  xlm_name=$(sed -n "$((row + 1))p" "$DESCS" | cut -f1)
   xlm_col=$(col_of "$xlm_name")
   xlm_cos=$(nth "$(val s)" "$row" | awk '{printf "%.3f", $1 / 1000000}')
   # the teacher's confidence: the cosine margin (x10^6) between the best and the
@@ -136,7 +165,19 @@ xlm() {
     index(names, " " $1 " ") { if (!($1 in m) || sc[FNR] > m[$1]) m[$1] = sc[FNR] }
     END { n = 0; for (k in m) v[n++] = m[k]
           for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) if (v[j] > v[i]) { t = v[i]; v[i] = v[j]; v[j] = t }
-          print (n >= 2 ? v[0] - v[1] : 1000000000) }' work/descs.tsv)
+          print (n >= 2 ? v[0] - v[1] : 1000000000) }' "$DESCS")
+}
+xlm() {
+  if [ "${S1_WORKER:-xlmr}" != pair ]; then xlm_lane "${S1_WORKER:-xlmr}" "$@"; return 0; fi
+  # the PAIR lane: both teachers on the text. The NLI verdict is the answer
+  # (it is the better one when they disagree), and the pair's confidence -
+  # what S1_LEARN gates - is the NLI margin when the two AGREE and 0 when
+  # they do not: a disagreement is never learned, it is held in work/pending.tsv
+  xlm_lane xlmr "$@"; pair_x_name=$xlm_name; pair_x_cos=$xlm_cos; pair_x_margin=$xlm_margin; pair_t_x=$t_xlm
+  xlm_lane nli "$@";  pair_n_name=$xlm_name; pair_n_cos=$xlm_cos; pair_n_margin=$xlm_margin; pair_t_n=$t_xlm
+  pair_agree=0; [ "$pair_x_name" = "$pair_n_name" ] && pair_agree=1
+  [ "$pair_agree" = 1 ] || xlm_margin=0
+  t_xlm=$((pair_t_x + pair_t_n)); DESCS=work/descs.tsv
 }
 # record NAME -> the memory learns (text, NAME): work/memory.dqt is rewritten by
 # the program, and one line goes to work/memory.tsv, the dataset

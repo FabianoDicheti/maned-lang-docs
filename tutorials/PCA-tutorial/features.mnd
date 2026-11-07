@@ -1,0 +1,173 @@
+# ============================================================================
+# features.mnd -- one image in, its 54-number description out
+# ----------------------------------------------------------------------------
+# The browser sends a [128,128] grayscale image; this answers a [1,54] row, in
+# this order, every value multiplied by 1000:
+#
+#     0..31   intensity histogram, 32 bins, as a share of the pixels
+#     32..33  Sobel gradient magnitude: mean, standard deviation
+#     34..41  four horizontal blocks: mean, standard deviation of each
+#     42..51  top 10 singular values / the sum of all singular values
+#     52..53  20 ln|DFT|: mean of the low bins, mean of the high bins
+#
+# There is no floating point here, only integer matrix products and the integer
+# `eigendecomp`, `fft2d` and `log`. The comments give the bound that keeps each
+# product inside int32; `maned-run --trap-overflow` checks them on real images.
+#
+# SERVE: maned-serve features.mnd --port 8090   (run from this folder)
+# ASK:   curl -X POST localhost:8090/run.json -d '{"gray": [[...128 rows...]]}'
+# ============================================================================
+mnd::quantmax=2000000000;
+mnd::quantmin=-2000000000;
+mnd::quantres=0;
+
+in::gray = csv();                           # [128,128], values 0..255
+in::kx = [[[[-1,0,1],[-2,0,2],[-1,0,1]]]];  # conv2d weight: [Cout,Cin,KH,KW]
+in::ky = [[[[-1,-2,-1],[0,0,0],[1,2,1]]]];
+
+# x / s for a one-element tensor s. Only a literal number broadcasts, so s is
+# spread over x's shape first: (x dup ==) is an all-ones tensor of that shape.
+calc::lambda_flow divt(x, s) {
+    x dup == unit =
+    unit s scalar_mul spread =
+    x spread elemwise_div q =
+} return q;
+
+# x - s for a one-element tensor s, spread the same way.
+calc::lambda_flow subt(x, s) {
+    x dup == unit =
+    unit s scalar_mul spread =
+    x spread elemwise_sub d =
+} return d;
+
+# Population standard deviation of a tensor, in the tensor's own scale.
+# tensor_mean accumulates wide; each squared cell must fit int32 by itself.
+calc::lambda_flow stdev(x, m) {
+    x m subt c =
+    c dup elemwise_mul c2 =
+    c2 tensor_mean v =
+    v sqrt s =
+} return s;
+
+# One block's [1,2]: mean, standard deviation, both x1000.
+calc::lambda_flow block_stats(b) {
+    b 1000 mul bk =                         # <= 255000
+    bk tensor_mean mk = ; mk diag mk11 =
+    b 64 mul b64 =                          # squares <= 2.7e8
+    b64 tensor_mean m64 =
+    b64 m64 stdev s64 =
+    s64 125 mul s125 = ; s125 8 div sk = ; sk diag sk11 =   # 1000/64 = 125/8
+    mk11 sk11 {axis: 1} concat st =
+} return st;
+
+calc::lambda_flow features(gray, kx, ky) {
+    # ---- histogram -----------------------------------------------------------
+    # cum[i] = pixels >= 8i, one compare of every pixel against every threshold,
+    # so a bin is cum[i] - cum[i+1].
+    gray {rows: -1, cols: 1} reshape px =
+    33 range ids = ; ids 8 mul t0 =
+    t0 {rows: 1, cols: -1} reshape t =
+    1 33 ones row33 =
+    px dup == col16k =
+    px row33 matmul pxrep =
+    col16k t matmul thrs =
+    pxrep thrs >= reached =
+    reached {axis: 0} tensor_sum cum =      # [1,33]
+    32 eye i32 =
+    1 32 zeros z32 =
+    i32 z32 {axis: 0} concat upper =
+    z32 i32 {axis: 0} concat lower =
+    upper lower elemwise_sub bins =
+    cum bins matmul counts =                # [1,32]
+    counts 1000 mul ck = ; ck 8192 add ckr = ; ckr 16384 div hist =
+
+    # ---- Sobel gradient ------------------------------------------------------
+    # Reflect-101 padding, cv2's default border: row -1 reads row 1, and row 128
+    # reads row 126. So [130,130] -> conv2d -> exactly [128,128].
+    128 eye i128 =
+    i128 {axis: 0, index: 1} slice e1 =
+    i128 {axis: 0, index: 126} slice e126 =
+    e1 {rows: 1, cols: -1} reshape first =
+    e126 {rows: 1, cols: -1} reshape last =
+    first i128 {axis: 0} concat pad0 =
+    pad0 last {axis: 0} concat pad =        # [130,128]
+    pad gray matmul padded0 =
+    pad transpose padt =
+    padded0 padt matmul padded =            # [130,130]
+    padded kx {stride: 1, padding: 0} conv2d gx3 =
+    padded ky {stride: 1, padding: 0} conv2d gy3 =
+    gx3 {axis: 0, index: 0} slice gx =
+    gy3 {axis: 0, index: 0} slice gy =
+    gx dup elemwise_mul gx2 =
+    gy dup elemwise_mul gy2 =
+    gx2 gy2 elemwise_add g2 =               # <= 2 * 1020^2 = 2.08e6
+    g2 1024 mul g2s =                       # <= 2.13e9
+    g2s sqrt mag32 =                        # scale 32, <= 46000
+    mag32 32 mul mag1k =                    # scale 1024
+    mag1k tensor_mean m1k =
+    m1k 125 mul gm0 = ; gm0 128 div gmean = ; gmean diag gmean11 =   # 1000/1024
+    m1k 32 div m32 =
+    mag32 m32 stdev s32 =
+    s32 125 mul gs0 = ; gs0 4 div gstd = ; gstd diag gstd11 =        # 1000/32
+
+    # ---- four horizontal blocks ----------------------------------------------
+    gray {axis: 0, sections: 4, index: 0} split b0 =
+    gray {axis: 0, sections: 4, index: 1} split b1 =
+    gray {axis: 0, sections: 4, index: 2} split b2 =
+    gray {axis: 0, sections: 4, index: 3} split b3 =
+    b0 block_stats st0 =
+    b1 block_stats st1 =
+    b2 block_stats st2 =
+    b3 block_stats st3 =
+
+    # ---- singular values -----------------------------------------------------
+    # sigma_k = sqrt(eigenvalue k of A^T A). Having all 128 is what allows the
+    # normalization used here, the sum of every singular value.
+    gray transpose grayt =
+    grayt gray matmul ata =                 # <= 128 * 65025 = 8.3e6
+    ata eigendecomp eigs =                  # [128,1], largest first, <= 1.07e9
+    eigs {lo: 0, hi: 2000000000} clip eigp = # a rounded zero can land just below it
+    eigp sqrt sigma =
+    sigma tensor_sum sigma_sum =            # <= 128 * 32640
+    10 eye i10 = ; 10 118 zeros z118 =
+    i10 z118 {axis: 1} concat top10 =
+    top10 sigma matmul sv0 =                # [10,1]
+    sv0 1000 mul svk =
+    svk sigma_sum divt svq =
+    svq transpose svs =                     # [1,10]
+
+    # ---- frequency -----------------------------------------------------------
+    # 20 ln|X| * 1000. Reading |X| at scale 256 keeps the digits of the small bins,
+    # where the logarithm moves fastest, and 20000 ln 256 = 110904 takes it back
+    # out. A bin of exactly 0 has no log, so it reads as the smallest step, 1/256.
+    gray {part: 2, scale: 256} fft2d mag =  # <= 256 * 128^2 * 255 = 1.07e9
+    mag {lo: 1, hi: 2000000000} clip magp =
+    magp {scale: 20000} log ln256 =         # <= 20000 ln 1.07e9 = 416000
+    ln256 110904 sub lnv =
+
+    # fft2d leaves DC at [0,0], so numpy's fftshift is two index ranges. The
+    # central 20 bins, for low, wrap around: 118..127 then 0..9. Its four 10x10
+    # corners, for high, meet at the middle: 54..73.
+    z118 i10 {axis: 1} concat bottom10 =
+    top10 bottom10 {axis: 0} concat lowsel = # [20,128]
+    20 54 zeros z54 = ; 20 eye i20 =
+    z54 i20 {axis: 1} concat mid0 =
+    mid0 z54 {axis: 1} concat highsel =     # [20,128]
+    lowsel lnv matmul low0 = ; lowsel transpose lowt = ; low0 lowt matmul lowb =
+    highsel lnv matmul high0 = ; highsel transpose hight = ; high0 hight matmul highb =
+    lowb tensor_mean lowm = ; lowm diag low =
+    highb tensor_mean highm = ; highm diag high =
+
+    # ---- the row, in order ----------------------------------------------------
+    hist gmean11 {axis: 1} concat f1 =
+    f1 gstd11 {axis: 1} concat f2 =
+    f2 st0 {axis: 1} concat f3 =
+    f3 st1 {axis: 1} concat f4 =
+    f4 st2 {axis: 1} concat f5 =
+    f5 st3 {axis: 1} concat f6 =
+    f6 svs {axis: 1} concat f7 =
+    f7 low {axis: 1} concat f8 =
+    f8 high {axis: 1} concat row =
+} return row;
+
+out::row = csv("row.csv");

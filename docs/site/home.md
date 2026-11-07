@@ -87,7 +87,7 @@ compares the results exactly, so the claim is checkable rather than asserted.
 | Import float weight files (safetensors) as exact integers | [Packed weights](packed-weights.html) |
 | Convert safetensors / `.npy` / `.gguf` models to compact exact-integer files | [.dqt tensor files](dqt-tensors.html) |
 | Build a matrix from properties, or read a matrix's properties | [Properties and profiles](properties.html) |
-| Train a model — the ten `calc::ml::` algorithms | [Machine learning](guides/machine-learning.html) |
+| Train a model — the eleven `calc::ml::` algorithms | [Machine learning](guides/machine-learning.html) |
 | Spread training across workers | [Training across Bark devices](guides/ml-parallel.html) |
 | Meet the kernel — what a fleet of Bark workers buys you, and what it costs | [Kernel](kernel.html) |
 | Turn a spare x86 machine into a worker | [Set up a Bark machine](bark-machines.html) |

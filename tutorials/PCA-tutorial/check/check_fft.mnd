@@ -1,0 +1,33 @@
+# Parseval: a transform keeps the image's energy, here mean|X|^2 = h*w * mean x^2. Run
+# by check.sh on each image. It needs no reference, only fft2d and arithmetic.
+#
+# Centering removes the huge DC bin, leaving |X| <= sum|x| <= 2.1e6, so |X|/64 squares
+# inside int32. With h*w = 128^2 and that /64, the two sides differ by exactly 4. The
+# division truncates small bins, hence the allowance of 3 %.
+mnd::quantmax=2000000000;
+mnd::quantmin=-2000000000;
+mnd::quantres=0;
+
+in::gray = dqt("expected.dqt", "IMG");
+
+calc::lambda_flow check(gray) {
+    gray tensor_mean m =
+    gray dup == unit =
+    unit m scalar_mul spread =
+    gray spread elemwise_sub x =
+    x {part: 2} fft2d mag =
+    mag 64 div small =
+    small dup elemwise_mul small2 =
+    small2 tensor_mean energy_x =
+    x dup elemwise_mul x2 =
+    x2 tensor_mean energy_img0 =
+    energy_img0 4 mul energy_img =
+    energy_x energy_img elemwise_sub gap0 =
+    gap0 abs gap =
+    gap 100 mul gap100 =
+    gap100 energy_img elemwise_div percent =
+    percent 3 > above =
+    above tensor_sum fails =
+} return percent, fails;
+
+out::fails = csv("fails.csv");

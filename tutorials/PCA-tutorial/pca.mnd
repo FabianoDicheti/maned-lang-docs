@@ -1,0 +1,32 @@
+# ============================================================================
+# pca.mnd -- PCA to 3 components
+# ----------------------------------------------------------------------------
+# In:  x [n,54], one image per row, the features of features.mnd.
+# Out: scores   [n,3]   each image's PC1, PC2, PC3 (what the 3D plot draws)
+#      loadings [54,3]  each component as a unit vector over the features
+#      variance [3,1]   variance along each component
+#      explained [3,1]  the percentage of all the variance it holds
+#      total    [1]     the variance of all the data
+#
+# The same recipe as sklearn's PCA: center only (no scaling per feature), the
+# eigenvectors of the covariance, each signed so its largest loading is positive.
+# It is integer-only inside, and the values are decimals with 3 places at the edge.
+#
+# SERVE: maned-serve pca.mnd --port 8091   (run from this folder)
+# ASK:   curl -X POST localhost:8091/run.json -d '{"x": [[...54 values...], ...]}'
+# ============================================================================
+mnd::quantmax=2000000;
+mnd::quantmin=-2000000;
+mnd::quantres=3;
+
+in::x = csv();
+
+calc::ml::pca fit(x) {
+    components: 3
+} return model, scores, loadings, variance, explained, total;
+
+out::scores = csv("scores.csv");
+out::loadings = csv("loadings.csv");
+out::variance = csv("variance.csv");
+out::explained = csv("explained.csv");
+out::total = csv("total.csv");

@@ -265,6 +265,6 @@ regression.
 
 ## Next
 
-- [Machine learning](guides/machine-learning.html) — the ten algorithms, their hyperparameters and what their outputs mean.
+- [Machine learning](guides/machine-learning.html) — the eleven algorithms, their hyperparameters and what their outputs mean.
 - [Remote workers](guides/remote-workers.html) — device blocks, async slots, discovery, and the Bark VM in full.
 - [How Maned runs your program](under-the-hood.html) — what the toolchain does between `maned-run` and a result.

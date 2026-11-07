@@ -1,0 +1,29 @@
+# The 54 features of 11 images against numpy's, both as integers x1000. Run by check.sh.
+# Each allowance is the group's measured error plus a little: rounding in numpy's own
+# x1000, and the integer means and square roots in features.mnd.
+mnd::quantmax=2000000000;
+mnd::quantmin=-2000000000;
+mnd::quantres=0;
+
+in::got = csv("got_features.csv");
+in::want = dqt("expected.dqt", "features");
+
+calc::lambda_flow check(got, want) {
+    got want elemwise_sub d =
+    d abs a =
+    a {axis: 0} tensor_max worst0 =
+    worst0 {rows: 1, cols: 54} reshape worst =
+    1 32 1 full hist =                       # histogram
+    1 2 16 full grad =                       # gradient
+    1 8 10 full blocks =                     # blocks
+    1 10 2 full sv =                         # singular values
+    1 2 3 full freq =                        # frequency
+    hist grad {axis: 1} concat t1 =
+    t1 blocks {axis: 1} concat t2 =
+    t2 sv {axis: 1} concat t3 =
+    t3 freq {axis: 1} concat allowed =
+    worst allowed > above =
+    above tensor_sum fails =
+} return worst, fails;
+
+out::fails = csv("fails.csv");

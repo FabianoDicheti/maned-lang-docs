@@ -1,0 +1,84 @@
+# pca.mnd's answer on 11 images, against numpy's and against what must hold in any
+# PCA. Run by check.sh. Values are at quantres 3, so 1000 means 1.0.
+mnd::quantmax=2000000000;
+mnd::quantmin=-2000000000;
+mnd::quantres=3;
+
+in::scores = csv("scores.csv");
+in::loadings = csv("loadings.csv");
+in::variance = csv("variance.csv");
+in::explained = csv("explained.csv");
+in::total = csv("total.csv");
+in::want_scores = dqt("expected_pca.dqt", "scores");
+in::want_loadings = dqt("expected_pca.dqt", "loadings");
+in::want_variance = dqt("expected_pca.dqt", "variance");
+in::want_explained = dqt("expected_pca.dqt", "explained");
+in::want_total = dqt("expected_pca.dqt", "total");
+
+# The largest difference between two tensors, as [1].
+calc::lambda_flow worst(a, b) {
+    a b elemwise_sub d =
+    d abs m =
+    m tensor_max w =
+} return w;
+
+calc::lambda_flow check(scores, loadings, variance, explained, total, want_scores, want_loadings, want_variance, want_explained, want_total) {
+    # ---- against numpy --------------------------------------------------------
+    scores want_scores worst e_scores =
+    loadings want_loadings worst e_loadings =
+    variance want_variance worst e_variance =
+    explained want_explained worst e_explained =
+    total tensor_sum total1 =
+    want_total tensor_sum want_total1 =
+    total1 want_total1 worst e_total =
+
+    # ---- loadings are orthonormal: L^T L = I, at scale 10^6 from the matmul -----
+    loadings transpose lt =
+    lt loadings matmul ltl0 =
+    ltl0 1000 div ltl =
+    3 eye i3 =
+    i3 1000 mul ik =
+    ltl ik worst e_orthonormal =
+
+    # ---- scores are uncorrelated, each with its component's variance ------------
+    # S^T S = (n-1) * diag(variance). S/100 keeps the products inside int32, which
+    # with n = 11 makes both sides the same raw number.
+    scores 100 div s =
+    s transpose st =
+    st s matmul sts =
+    sts i3 elemwise_mul on =
+    sts on elemwise_sub off =
+    1 3 ones row3 =
+    row3 on matmul diag_row =
+    diag_row transpose got_variance =
+    got_variance variance worst e_diagonal =
+    off abs off_abs =
+    off_abs tensor_max e_off =
+
+    # ---- explained variance can't pass 100 % ------------------------------------
+    explained tensor_sum explained_sum =
+
+    # ---- allowances: each measured error plus a little, in units of 0.001 --------
+    # The S/100 above truncates, which costs up to 2 * sum|s| on a diagonal entry,
+    # about 13000 here, and 0.06 % of PC1. The rest is rounding.
+    e_scores 20 > f1 =
+    e_loadings 2 > f2 =
+    e_variance 50 > f3 =
+    e_explained 2 > f4 =
+    e_total 20 > f5 =
+    e_orthonormal 3 > f6 =
+    e_diagonal 20000 > f7 =
+    e_off 4000 > f8 =
+    explained_sum 100000 > f9 =
+    f1 f2 {axis: 0} concat c1 =
+    c1 f3 {axis: 0} concat c2 =
+    c2 f4 {axis: 0} concat c3 =
+    c3 f5 {axis: 0} concat c4 =
+    c4 f6 {axis: 0} concat c5 =
+    c5 f7 {axis: 0} concat c6 =
+    c6 f8 {axis: 0} concat c7 =
+    c7 f9 {axis: 0} concat flags =
+    flags tensor_sum fails0 =
+} return e_scores, e_loadings, e_variance, e_explained, e_total, e_orthonormal, e_diagonal, e_off, explained_sum, fails0;
+
+out::fails0 = csv("fails_scaled.csv");

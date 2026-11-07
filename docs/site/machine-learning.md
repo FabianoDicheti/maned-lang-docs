@@ -15,9 +15,7 @@ calc::ml::linear_regression fit(X, y) {
 } return model, loss;
 ```
 
-That is the whole training program. Ten of the eleven algorithms run today; the
-eleventh (`pca`) is reserved and refuses honestly — see
-[`pca` is reserved](#pca-is-reserved).
+That is the whole training program, and all eleven algorithms work the same way.
 
 Every example on this page is taken from `mnd_scripts/tutorials/`, one
 self-contained teaching script per algorithm, and every output block was
@@ -112,7 +110,7 @@ the int32-overflow refusal all need the feature count.
 | `isolation_forest` | `fit(X)` — unsupervised | scale-q path length, **lower = anomalous** | B — local only |
 | `xgboost` | `fit(X, y)`, `y ∈ {0, 10^q}` | scale-q probabilities | A — routable |
 | `hmm` | `fit(O)` — unsupervised sequences | state ids `0..K−1`, `[sequences, steps]` | A — routable |
-| `pca` | — | — | reserved, refuses |
+| `pca` | `fit(X)` — unsupervised | `[rows, components]` scores | B — coordinator only |
 
 **Tier A** desugars into ordinary Maned flows built from wire-legal
 primitives, so the training itself can be routed to a Bark worker with
@@ -122,7 +120,7 @@ is refused with a reason rather than silently ignored. That distinction, and
 what to do with it, is the subject of
 [Training across Bark devices](guides/ml-parallel.html).
 
-## The ten algorithms
+## The eleven algorithms
 
 ### Linear regression
 
@@ -177,7 +175,7 @@ prob : [4x1] = [1, 99, 33, 50]
 `100` is certainty, `50` is the decision boundary, so "predicted class 1" is
 `prob > 50`. The probe at exactly the midpoint returns `50` — it is on the line.
 
-**The loss is not log-loss.** There is no `log` op on the tensor path, so what
+**The loss is not log-loss.** Workers have no `log` op, so what
 is reported is the scale-q mean squared error of the probabilities: same
 minimum, different units.
 
@@ -272,9 +270,8 @@ beyond counting.
 ### Naive Bayes
 
 **Purpose.** Gaussian naive Bayes — per class, per feature, a mean and a
-variance; prediction is the argmax of an integer log-space score. The language
-has no `log` op on the tensor path, but the kernel is native, so it uses a
-hand-rolled fixed-point `ln` internally: integer in, integer out, deterministic,
+variance; prediction is the argmax of an integer log-space score. The kernel
+is native, so it uses a hand-rolled fixed-point `ln` internally: integer in, integer out, deterministic,
 without a float ever entering the runtime.
 
 **Reach for it when** you want a calibrated-ish multi-class classifier in one
@@ -452,7 +449,7 @@ column arrives in).
 
 **`score`** is the final mean scale factor: monotone non-decreasing over EM
 iterations, so raising `iters` and watching it climb is a fit-quality trace. It
-is one `log` op short of the true log-likelihood, so it is reported as what it
+is one worker-side `log` op short of the true log-likelihood, so it is reported as what it
 is rather than mislabelled.
 
 **Labels are identifiable only up to a permutation** — which hidden state got
@@ -462,6 +459,43 @@ point *of its start*, `seed:` is part of the model's provenance: sweep
 
 `hmm` needs `quantres` 2..3 — the α/β renormalization scale `10^(q+1)` must
 square inside int32, and the construct refuses otherwise, with your numbers.
+
+### Principal component analysis
+
+**Purpose.** Find the few directions that hold most of a dataset's variance, and
+place each row on them. It is how you plot a 54-column table in 3D, or see which
+columns actually vary together.
+
+```mnd
+calc::ml::pca fit(X) {
+    components: 2
+} return model, scores, loadings, variance, explained, total;
+```
+
+The recipe is sklearn's: center the columns, take the eigenvectors of the
+covariance, and sign each so its largest loading is positive. Inside it is integers
+only: the covariance is computed exactly, with no rounded mean, and solved by the
+integer eigensolver, so a given dataset gives the same bits on arm64 and x86_64.
+
+The return list is any prefix of these six, all from one flow:
+
+| Name | Shape | Meaning |
+|---|---|---|
+| `model` | descriptor | The fit. `model X ml_predict` projects new rows. |
+| `scores` | `[rows, k]` | Each row on each component, at scale q |
+| `loadings` | `[d, k]` | Each component as a unit vector, at scale q |
+| `variance` | `[k, 1]` | Variance along each component, at scale q |
+| `explained` | `[k, 1]` | Its **percentage** of the total, at scale q |
+| `total` | `[1]` | The variance of all the data, at scale q |
+
+Use a `quantres` of at least 3, or `loadings` have too few digits to read. A variance
+too wide for int32 at your `quantres` refuses rather than wrapping.
+
+**Features on very different scales?** The largest one takes over the first component.
+`standardize: true` puts every column on equal footing first.
+
+**Limits.** At most 1024 features, and `components` up to the smaller of rows and
+features. A sweep over `components` returns the models only.
 
 ## What a fitted model is
 
@@ -569,8 +603,9 @@ actually pays: see
 | `lr` | GD family | `10^quantres / 20` (0.05 real, floored at 1) | yes |
 | `l2` | GD family, xgboost | `0` (GD), `10^q` (xgboost) | yes |
 | `fit_intercept` | GD family | `true` | no |
-| `standardize` | GD family / kmeans, knn, naive_bayes | `true` / `false` | no |
+| `standardize` | GD family / kmeans, knn, naive_bayes, pca | `true` / `false` | no |
 | `k` | kmeans, knn | `3` | yes |
+| `components` | pca | `2` | yes |
 | `max_depth` | decision_tree, isolation_forest | `8` / `10` | yes |
 | `min_samples` | decision_tree | `2` | yes |
 | `trees` | isolation_forest | `50` | yes |
@@ -586,15 +621,6 @@ actually pays: see
 | `budget` | Tier A | worker register budget (4096; `256` for ABI v1) | no |
 
 `{}` is a legal block — everything defaults, except the required keys.
-
-## `pca` is reserved
-
-`pca` is the eleventh name in the closed set and it does not run. It refuses at
-desugar time: *deferred behind a symmetric eigensolver — `eigendecomp` is
-registered but has no evaluator*. That is deliberate. The name is claimed so
-that a future release can add it without changing the closed set, and refusing
-loudly beats shipping an approximation nobody asked for. When the eigensolver
-lands, `pca` starts working and gets a tutorial like the rest.
 
 ## When Maned refuses
 

@@ -354,7 +354,9 @@ to be small:
 
 - **Local only, no worker opcode**: `determinant`, `adjugate`, `slice`, `exp`, `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin`, and [`profile_vector`](properties.html#properties-as-values). A flow using one of these simply stays on the coordinator.
 - **`clip` has a routable spelling** if you need it on a worker: `min(x,hi) = hi − relu(hi−x)` and `max(x,lo) = lo + relu(x−lo)`.
-- **Registered but not executable**: `cholesky`, `lu`, `qr`, `svd`, `eigendecomp`, `inverse`, `fft`, `fft2d`, `conv1d`, `conv3d`, `multihead_attention` and others parse and shape-infer, then refuse at run time — and `maned-lint` warns (`W011`) before you ever run them. They are named so the shapes and the grammar are settled; none of them silently returns a wrong answer.
+- **Eigenvalues are local too**: `A {scale: 1000000} eigendecomp w, V =` solves a symmetric matrix in integers only, largest eigenvalue first, with `V` as unit columns at that scale. `A eigendecomp w =` gives just the eigenvalues.
+- **The 2-D DFT and the logarithm are local too**: `x {part: 2, scale: 256} fft2d mag =` gives the magnitude of each bin in numpy's order, with `re`, `im` and `mag` available together as `x fft2d re, im, mag =`. `m {scale: 20000} log y =` gives `ln(m) * 20000` at quantres 0, and refuses an input of 0 or below. Both are integer-only.
+- **Registered but not executable**: `cholesky`, `lu`, `qr`, `svd`, `inverse`, `fft`, `conv1d`, `conv3d`, `multihead_attention` and others parse and shape-infer, then refuse at run time — and `maned-lint` warns (`W011`) before you ever run them. They are named so the shapes and the grammar are settled; none of them silently returns a wrong answer.
 
 Three constraints that only appear once a flow is routed:
 

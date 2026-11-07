@@ -209,16 +209,18 @@ warns W011 up front).
 | Shape | `concat`, `reshape`, `split` | yes | yes |
 | Quantization | `quantize`, `dequantize` | — | yes |
 | Shape, local only | `slice` (one index off an axis — the inverse of `concat`) | yes | **no** |
-| Math, local only | `exp` (domain −16..7.616; refuses above it, see "Table domains" below), `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin` (the argmax mirror; same tie rule, lowest index) | yes | **no** |
+| Math, local only | `exp` (domain −16..7.616; refuses above it, see "Table domains" below), `log` (integer-only, refuses x ≤ 0, see "The 2-D DFT and the logarithm" below), `sqrt`, `isqrt`, `abs`, `clip`, `argmax`, `argmin` (the argmax mirror; same tie rule, lowest index) | yes | **no** |
 | Linear algebra | `packed_matmul` (multiplies a tensor by a lang_085 packed weight descriptor loaded with `in:: packed()`, without dequantizing — rescale per block partial, division half to even, so the result is bit-identical on every device and loop order; lang_092 payload widths are 8/16/32/64 — wide partials accumulate in 128-bit — and `tensor::pack` takes `bits=8\|16\|32\|64\|auto` (default 16, `auto` = smallest lossless width per tensor), `pack_all=0\|1` (rank-1 floats are otherwise stored exact I64 at a per-tensor scale), with `tensor::profile` printing the per-width pack preview and recommendation). **lang_089 put it on the wire as opcode `0x44`**, two operands — a plain activation and the descriptor, which needs no new MNPK dtype because since lang_094 a descriptor slot *is* one int32 element, so the whole thing travels as one ordinary rank-1 i32 tensor. One packed operand per instruction: a **packed** left operand stays local-only and refuses by name when routed (follow-on lang_100) | yes | yes |
+| Eigenvalues, local only | `eigendecomp` — a symmetric matrix `A`, integer-only (see "Eigenvalues and eigenvectors" below): `A eigendecomp w =` gives the eigenvalues, `A {scale: S} eigendecomp w, V =` the unit eigenvectors too | yes | **no** |
+| Frequency, local only | `fft2d` — an integer 2-D DFT, numpy's bin order, unshifted (see "The 2-D DFT and the logarithm" below): `x fft2d re, im, mag =`, or one part with `x {part: 2, scale: S} fft2d mag =`. | yes | **no** |
 | Linear algebra, local only | `determinant`, `adjugate`; `pack_rows` (lang_087: packs an int64 activation tensor `[M, K]` into the same descriptor form, `{bits: 8\|16}`, default 8 — the fit is the pinned `rescale_half_even` itself, so it is bit-identical everywhere with no decimal extraction; a packed left operand takes the packed×packed `packed_matmul` path, whose 8/16-bit partials fit int64 by construction — the activation-magnitude refusal does not exist there, and the combined block exponent rescales in ONE half-even rounding through a 128-bit power table, never two chained divisions. That path has no wire form: see lang_089 above) | yes | **no** |
 | Profiling, local only | `profile_vector` | yes | **no** |
 | ML, local only | `ml_predict` (runs a fitted model descriptor over new rows), `ml_fit` (the Tier-B native training kernel `calc::ml::` desugars to) — coordinator-only by design: inference is cheap, the parallelism that matters is in training, which the gradient-descent family reaches by desugaring to worker-legal primitives instead | yes | **no** |
 | Constructors, host-side | `zeros` `ones` `full` `eye` `diag` `range` `random` `band` `tridiag` `from_spectrum` `synth` | `in::` initializer position | n/a |
-| **Registered, not executable** | `tensor.init` `txt.read` `adaptive_avgpool2d` `cholesky` `clip_gradient` `conv1d` `conv3d` `cross_entropy` `eigendecomp` `embedding_lookup` `fft` `fft2d` `gelu` `get_timestamp` `groupnorm` `ifft` `instancenorm` `inverse` `lu` `multihead_attention` `qr` `s4_layer` `scaled_dot_attention` `selective_scan` `silu` `softplus` `svd` | no — lint warns **W011**, run refuses | no |
+| **Registered, not executable** | `tensor.init` `txt.read` `adaptive_avgpool2d` `cholesky` `clip_gradient` `conv1d` `conv3d` `cross_entropy` `embedding_lookup` `fft` `gelu` `get_timestamp` `groupnorm` `ifft` `instancenorm` `inverse` `lu` `multihead_attention` `qr` `s4_layer` `scaled_dot_attention` `selective_scan` `silu` `softplus` `svd` | no — lint warns **W011**, run refuses | no |
 
-As of 2026-09-29 that is 84 registry ops: 32 run both places, 25 run locally
-only, and 27 parse and shape-infer but refuse to execute. The counts are not
+As of 2026-09-29 that is 85 registry ops: 32 run both places, 28 run locally
+only, and 25 parse and shape-infer but refuse to execute. The counts are not
 decoration — the table is generated from the sets and checked by a drift
 suite, so if an op is added to the registry and nowhere else, this table is
 what fails.
@@ -248,6 +250,47 @@ locally and remotely:
 ```mnd
 x kernel {stride: 1, padding: 0} conv2d result =
 ```
+
+### Eigenvalues and eigenvectors
+
+```mnd
+A eigendecomp w =                     # eigenvalues only, [n,1]
+A {scale: 1000000} eigendecomp w, V = # and the unit eigenvectors, [n,n] as columns
+```
+
+`A` must be symmetric, of order at most 1024; anything else refuses by name.
+Eigenvalues come largest first, in `A`'s own scale, rounded to integers, so scale
+`A` up first if the small ones matter. One too wide for int32 refuses. `V` is at
+`{scale: S}`, default 1000000, up to 2^30: each column has norm `S`, and its
+largest-magnitude entry is positive.
+
+The solver is cyclic Jacobi with no floating point anywhere, so a given matrix
+produces the same bits on arm64 and x86_64. It has no worker opcode.
+
+
+### The 2-D DFT and the logarithm
+
+```mnd
+x fft2d re, im, mag =                 # all three parts, each [h,w]
+x {part: 2, scale: 256} fft2d mag =   # one part, here |X| * 256
+m {scale: 20000} log y =              # ln(m) * 20000, at quantres 0
+```
+
+`fft2d` is the unnormalized DFT of a real matrix, with numpy's sign and bin order:
+DC is at `[0,0]`, and there is no shift. `{part: k}` picks real (0, the default),
+imaginary (1) or magnitude (2), and `{scale: S}`, 1 to 2^30 and 1 by default,
+multiplies the result. The input is read as plain integers, so its quantres carries
+through. A side can be up to 4096 if it is a power of two, and up to 1024 otherwise,
+since those take the O(n²) sum. A bin that doesn't fit int32 at that scale refuses by
+name. Each part is a separate transform, so ask only for those you read.
+
+`log` treats its input as a value at the program's quantres, so it computes
+`ln(v / 10^q) * S`, with `{scale: S}` defaulting to `10^q`. At quantres 0 that default
+gives a rounded integer, so give it a scale. An input of 0 or below refuses with its
+element index: to floor one instead, `clip` first, as in `{lo: 1, hi: 2000000000}`.
+
+Neither uses floating point, so a given input produces the same bits on arm64 and
+x86_64. Neither has a worker opcode. `fft` and `ifft` still refuse.
 
 ### Tensor constructors
 
@@ -553,7 +596,7 @@ tiers:
   *round* flows sized to the register budget, and a local epilogue that
   packs the model and reports the final `loss` (watch it: a stalled fit is
   visible there, not silent). `loss` is scale-q mean squared error — for
-  `logistic_regression` the squared error of the *probabilities* (there is
+  `logistic_regression` the squared error of the *probabilities* (a worker has
   no `log` op, so it is not log-loss) — and mean hinge for `svm`. Route the rounds with `@device(alias)`;
   `--verify` proves the expansion bit-for-bit against the worker. The
   `features: <d>` hyperparameter is **required** — shapes are dynamic at
@@ -590,7 +633,7 @@ tiers:
   `scalar_mul`), which is also what fits an EM iteration in **5** MNPK
   params. Second return: `xgboost` = scale-q MSE of the final
   probabilities; `hmm` = `score`, the final mean scale factor c̄
-  (monotone non-decreasing under EM — a fit-quality trace, one `log` op
+  (monotone non-decreasing under EM — a fit-quality trace, one worker-side `log`
   short of the true log-likelihood, so not one). Routing economics,
   measured on the live 2-worker fleet: a routed chain LOSES (~40× for
   xgboost — boosting rounds are hard sequential barriers; no crossover
@@ -607,8 +650,9 @@ tiers:
   no wire opcode, so `@device` on them is refused honestly. `kmeans`,
   `knn` and `naive_bayes` accept `standardize` too, but here it defaults
   to **false** (Tier A defaults to true — the GD numerics need it; a
-  distance or count model merely benefits). `pca` is reserved and
-  refuses: `eigendecomp` has no evaluator yet.
+  distance or count model merely benefits). `pca` (+`components`, default 2, and
+  `standardize`) is the one that returns more than a model: `return model, scores,
+  loadings, variance, explained, total;` or any prefix of it, all from one flow.
 
 A fitted model is one rank-1 integer descriptor vector (magic, version,
 algorithm, `quantres`, feature count, flags, payload) — it prints, ships

@@ -142,6 +142,6 @@ fun serve(host: String, port: Int) {
     server.start()
     println("System One (Kotlin) UI  ->  http://127.0.0.1:$port")
     println("worker: ${if (host.isBlank()) "(unset)" else host}   S1_LEARN=${learnKnob()}")
-    println("note: a failed maned-run (e.g. worker unreachable on a novel text) ends the server, like the CLI")
+    println("note: a failed maned-run (e.g. worker unreachable on a novel text) returns an error to the page; the server stays up")
     CountDownLatch(1).await()   // block the main thread; the server runs until the process is stopped
 }

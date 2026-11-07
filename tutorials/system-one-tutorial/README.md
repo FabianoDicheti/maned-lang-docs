@@ -112,6 +112,15 @@ teaching, so every worker label is learned. The Kotlin and Rust apps are feature
 Python reference — the same confidence gate, verifier, training mode, `--pending`/`--resolve`
 review queue and command line. Set `S1_LEARN` in `~/.config/maned/xlm.env` to tune it.
 
+Two teachers gate better than one. With `S1_WORKER=pair` the loop asks both the XLM-R worker
+(`S1_WORKER_HOST`) and the entailment worker (`S1_NLI_HOST`, see `../system_one_nli`) on every
+unseen text: the NLI verdict is the answer, and the margin that `S1_LEARN` gates is the NLI
+margin when the two agree and 0 when they disagree, so a disagreement is always held for
+review, never learned. `S1_LEARN_STRICT=1` keeps that gate on in training mode. On the
+benchmark the two teachers agree on about a third of unseen texts and are right 71 % of the
+time when they do (82 % above the median margin), against 52 % for the better teacher alone;
+`work/eval_suite/README.md` has the study.
+
 ## Measured
 
 288 requests over four passes on a 4-core AVX2 worker, training mode:

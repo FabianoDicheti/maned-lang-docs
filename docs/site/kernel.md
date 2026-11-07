@@ -68,7 +68,7 @@ bob      x86   10.0.0.22:4780     no    matmul,add,sub,mul,div,relu,...
 ## Replacing a GPU for algebraic work
 
 The arithmetic Maned ships — matmul chains, convolutions, reductions,
-activations, the ten `calc::ml::` training algorithms — is exactly the
+activations, the eleven `calc::ml::` training algorithms — is exactly the
 arithmetic Bark executes, as pure integer kernels tuned per machine. What
 that is worth, measured on the project's own two test machines (a 2019-class
 laptop chip and a desktop mini PC) and verified on hardware:

@@ -38,12 +38,14 @@ fun loadEnv() {   // the worker's address and login from ~/.config/maned/xlm.env
 fun wf(name: String) = File(project, name)
 fun lines(name: String): List<String> = wf(name).let { if (it.isFile) it.readLines() else emptyList() }
 
+class MndFailed(message: String) : RuntimeException(message)   // a maned-run process exited non-zero
+
 fun runMnd(name: String): Map<String, List<Int>> {   // maned-run PROGRAM -> {output: raw ints}
     val pb = ProcessBuilder(manedRun, name).directory(project).redirectErrorStream(true)
     pb.environment().putAll(env)
     val p = pb.start()
     val out = p.inputStream.bufferedReader().readText()
-    if (p.waitFor() != 0) { System.err.println("$name failed:\n$out"); exitProcess(1) }
+    if (p.waitFor() != 0) throw MndFailed("$name failed:\n$out")
     return Regex("""(?m)^(\w+) : \[[^\]]*\] = \[([^\]]*)\]""").findAll(out)
         .associate { it.groupValues[1] to it.groupValues[2].split(",").map { v -> v.trim().toInt() } }
 }
@@ -221,7 +223,10 @@ fun demo() {
     println("score:  rank ${score.answer}, expected ${"%.2f".format(Locale.ROOT, score.expected)}  (tier ${tiers[score.tier]}, via ${score.via}, ${score.ms} ms)")
 }
 
-fun main(argsIn: Array<String>) {
+fun main(argsIn: Array<String>) = try { runCli(argsIn) }
+    catch (e: MndFailed) { System.err.println(e.message); exitProcess(1) }   // a failed worker step ends the CLI; under --serve it is caught per request
+
+fun runCli(argsIn: Array<String>) {
     loadEnv()
     val argv = argsIn.toMutableList()
     if (argv.firstOrNull() == "--pending") { showPending(); lookup.close(); return }

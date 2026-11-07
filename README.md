@@ -25,6 +25,7 @@ source.
 | `docs/site/maned_md.py` | The markdown grammar and Maned syntax highlighter, shared with the PDF build |
 | `docs/site/assets/` | Stylesheet; `tokens.css` is generated at build time from the highlighter's palette |
 | `tutorials/system-one-tutorial/` | The complete project of the [System One tutorial](https://maned-lang.com/tutorial.html): programs, policy, corpus, the shell runbook and the Python, Kotlin and Rust apps, deployable from zero |
+| `tutorials/PCA-tutorial/` | The complete project of the [PCA explorer tutorial](https://maned-lang.com/tutorial-pca.html): the features and PCA programs, the page, the example images and the numpy check |
 | `.github/workflows/pages.yml` | Builds and deploys on every push to `main` |
 
 ## Building locally
