@@ -113,13 +113,15 @@ Python reference — the same confidence gate, verifier, training mode, `--pendi
 review queue and command line. Set `S1_LEARN` in `~/.config/maned/xlm.env` to tune it.
 
 Two teachers gate better than one. With `S1_WORKER=pair` the loop asks both the XLM-R worker
-(`S1_WORKER_HOST`) and the entailment worker (`S1_NLI_HOST`, see `../system_one_nli`) on every
-unseen text: the NLI verdict is the answer, and the margin that `S1_LEARN` gates is the NLI
-margin when the two agree and 0 when they disagree, so a disagreement is always held for
-review, never learned. `S1_LEARN_STRICT=1` keeps that gate on in training mode. On the
-benchmark the two teachers agree on about a third of unseen texts and are right 71 % of the
-time when they do (82 % above the median margin), against 52 % for the better teacher alone;
-`work/eval_suite/README.md` has the study.
+(`S1_WORKER_HOST`) and an entailment (NLI) worker (`S1_NLI_HOST`) on every unseen text: the NLI
+verdict is the answer, and the margin that `S1_LEARN` gates is the NLI margin when the two agree
+and 0 when they disagree, so a disagreement is always held for review, never learned.
+`S1_LEARN_STRICT=1` keeps that gate on in training mode. On our benchmark the two teachers agree
+on about a third of unseen texts and are right 71 % of the time when they do (82 % above the
+median margin), against 52 % for the better teacher alone. The NLI worker and its lane files
+(`S1_NLI_DIR`: `nli_lane.py`, `02_nli_classify.mnd`) are not part of this tutorial yet, so
+`S1_WORKER=pair` and `S1_WORKER=nli` don't run from this folder; the default XLM-R teacher
+needs neither.
 
 ## Measured
 
