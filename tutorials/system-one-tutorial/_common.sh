@@ -146,11 +146,14 @@ xlm_lane() {
   if [ "$lane" = nli ]; then DESCS=$DESCS_NLI; else DESCS=work/descs.tsv; fi
   cand_d "$@"
   if [ "$lane" = nli ]; then   # the NLI lane (plan M5): the entailment worker, then its own program
+    nli_dir=${S1_NLI_DIR:-work/eval_suite}
+    [ -f "$nli_dir/nli_lane.py" ] && [ -f "$nli_dir/02_nli_classify.mnd" ] || {
+      echo "error: S1_WORKER=${S1_WORKER:-xlmr} needs the NLI lane (nli_lane.py, 02_nli_classify.mnd) in S1_NLI_DIR ($nli_dir); it is not part of this tutorial yet" >&2; exit 1; }
     tr ',' '\n' < work/q/cand_d.csv | awk '{ printf "%s%s", (NR > 1 ? "," : ""), ($1 > 0 ? "1.000" : "0.000") } END { print "" }' > work/q/cand_m.csv
     tr ',' '\n' < work/q/cand_d.csv | awk '{ printf "%s%s", (NR > 1 ? "," : ""), "1.000" } END { print "" }' > work/q/cand_one.csv
     t0=$(ms)
-    "${S1_PYTHON:-python3}" "${S1_NLI_DIR:-work/eval_suite}/nli_lane.py" || { echo "error: the NLI worker call failed" >&2; exit 1; }
-    run_mnd "${S1_NLI_DIR:-work/eval_suite}/02_nli_classify.mnd"; t_xlm=$(( $(ms) - t0 ))
+    "${S1_PYTHON:-python3}" "$nli_dir/nli_lane.py" || { echo "error: the NLI worker call failed" >&2; exit 1; }
+    run_mnd "$nli_dir/02_nli_classify.mnd"; t_xlm=$(( $(ms) - t0 ))
   else
   t0=$(ms); run_mnd 02_xlm_classify.mnd; t_xlm=$(( $(ms) - t0 ))
   fi
