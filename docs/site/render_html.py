@@ -200,6 +200,10 @@ PAGES = [
     # templates or the project, never tutorial.md. Every output on the page
     # is from a real run of that folder.
     ("Tutorial", "site/tutorial.md", "tutorial.html", "Build a System One"),
+    # The accuracy-first edition of the same project: `gen_tutorial_pages.py --tutorial
+    # system-one-accurate` splices mnd_scripts/tutorials/system_one_accurate/ into the
+    # templates under site/tutorial-accurate-src/.
+    ("Tutorial", "site/tutorial-accurate.md", "tutorial-accurate.html", "System One, accuracy-first"),
     # The second project, built the same way: `gen_tutorial_pages.py --tutorial pca`
     # splices mnd_scripts/tutorials/pca/ and the outputs its capture.sh wrote into
     # the templates under site/tutorial-pca-src/. An image explorer whose 54
@@ -281,7 +285,7 @@ OUTPUTS = {out for _, _, out, _ in PAGES}
 # own (a diagram that floats beside a 60-line program is unreadable), and the
 # "On this page" list stops at h2 - the parts - since the h3 steps of nine
 # parts would not fit the viewport.
-BOOK_PAGES = {"site/tutorial.md", "site/tutorial-pca.md"}
+BOOK_PAGES = {"site/tutorial.md", "site/tutorial-accurate.md", "site/tutorial-pca.md"}
 
 PAGE_ICONS = {
     "integration/python.html": "assets/img/icon-python.png",

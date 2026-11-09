@@ -26,6 +26,14 @@ corpus and three apps; the steps between them are commands you type.*
 > walks you through the whole deployment in the language you choose. This
 > page is the why and the how of each file in the project.
 
+> **Two editions.** This page builds the **speed-first** System One: one
+> worker, a count judge, an answer in milliseconds whenever the memory
+> knows the text. The same project exists in an **accuracy-first**
+> edition — two teachers, a prototype judge over the learned embeddings,
+> and a learning rule that writes only what both teachers agree on — on
+> its own page, [System One, accuracy-first](tutorial-accurate.html).
+> Read this one first; the other starts from it.
+
 ## What a System One is
 
 Kahneman's *System 1* is the fast, automatic judgement; *System 2* the

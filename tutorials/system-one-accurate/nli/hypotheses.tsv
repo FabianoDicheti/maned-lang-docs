@@ -1,0 +1,43 @@
+ag_news	choice	world	0	This news is about world events, international politics or war.
+ag_news	choice	sports	0	This news is about sports.
+ag_news	choice	business	0	This news is about business, companies or the economy.
+ag_news	choice	scitech	0	This news is about science or technology.
+emotion	choice	sadness	0	The writer feels sad.
+emotion	choice	joy	0	The writer feels happy.
+emotion	choice	love	0	The writer feels love or affection.
+emotion	choice	anger	0	The writer feels angry.
+emotion	choice	fear	0	The writer feels afraid.
+emotion	choice	surprise	0	The writer feels surprised.
+dbpedia	choice	company	0	This text is about a company.
+dbpedia	choice	school	0	This text is about a school or university.
+dbpedia	choice	artist	0	This text is about an artist or musician.
+dbpedia	choice	athlete	0	This text is about an athlete.
+dbpedia	choice	official	0	This text is about a politician or official.
+dbpedia	choice	transport	0	This text is about a vehicle, ship or aircraft.
+dbpedia	choice	building	0	This text is about a building.
+dbpedia	choice	nature	0	This text is about a river, mountain or natural place.
+dbpedia	choice	village	0	This text is about a village or town.
+dbpedia	choice	animal	0	This text is about an animal.
+dbpedia	choice	plant	0	This text is about a plant.
+dbpedia	choice	album	0	This text is about a music album.
+dbpedia	choice	film	0	This text is about a film.
+dbpedia	choice	writing	0	This text is about a book or written work.
+sms_spam	yesno	yes	0	This message is spam.
+sms_spam	yesno	no	0	This message is not spam.
+sst2	yesno	yes	0	This review is positive.
+sst2	yesno	no	0	This review is negative.
+offensive	yesno	yes	0	This tweet is offensive.
+offensive	yesno	no	0	This tweet is not offensive.
+sst5	score	1	1	This review is very negative.
+sst5	score	2	2	This review is somewhat negative.
+sst5	score	3	3	This review is neutral.
+sst5	score	4	4	This review is somewhat positive.
+sst5	score	5	5	This review is very positive.
+tweetsent	score	1	1	This tweet is negative.
+tweetsent	score	2	2	This tweet is neutral.
+tweetsent	score	3	3	This tweet is positive.
+yelp	score	1	1	This review is terrible.
+yelp	score	2	2	This review is poor.
+yelp	score	3	3	This review is average.
+yelp	score	4	4	This review is good.
+yelp	score	5	5	This review is excellent.

@@ -24,7 +24,8 @@ source.
 | `docs/site/render_html.py` | The static site generator — standard library only, no dependencies |
 | `docs/site/maned_md.py` | The markdown grammar and Maned syntax highlighter, shared with the PDF build |
 | `docs/site/assets/` | Stylesheet; `tokens.css` is generated at build time from the highlighter's palette |
-| `tutorials/system-one-tutorial/` | The complete project of the [System One tutorial](https://maned-lang.com/tutorial.html): programs, policy, corpus, the shell runbook and the Python, Kotlin and Rust apps, deployable from zero |
+| `tutorials/system-one-tutorial/` | The complete project of the [System One tutorial](https://maned-lang.com/tutorial.html), speed-first edition: programs, policy, corpus, the shell runbook and the Python, Kotlin and Rust apps, deployable from zero |
+| `tutorials/system-one-accurate/` | The [accuracy-first edition](https://maned-lang.com/tutorial-accurate.html) of the same project: two teachers (XLM-R and an entailment model), a prototype judge, the agreement learning rule, the Python app |
 | `tutorials/PCA-tutorial/` | The complete project of the [PCA explorer tutorial](https://maned-lang.com/tutorial-pca.html): the features and PCA programs, the page, the example images and the numpy check |
 | `.github/workflows/pages.yml` | Builds and deploys on every push to `main` |
 

@@ -1,0 +1,47 @@
+# 03_record_proto.mnd -- put one text's vector into the centroid memory
+#
+#   (04_query.sh's record_both does this right after 03_record.mnd)
+#
+# The text's whitened unit vector u [1,256] was written to work/q/u.csv by
+# 02_proto_classify.mnd when the text was classified, so recording needs no
+# second worker call. The update is one outer product:
+#
+#   sum[L, :] += u      n[L] += 1      for the label's column L (work/q/label.csv)
+#
+# A row of 256 zeros stands for "recorded without a vector" (a hand record,
+# an older dataset line): it adds nothing and does not count, so the
+# centroid stays the mean of real vectors. Written in place, like 03_record.mnd.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::lab = csv("work/q/label.csv");          # [1,1] the label's column
+in::u = csv("work/q/u.csv");                # [1,256] unit vector at 10^-3
+in::sum = dqt("work/protos.dqt", "sum");    # [32,256]
+in::n = dqt("work/protos.dqt", "n");        # [1,32]
+in::r32 = csv("work/ranges/r32.csv");       # [1,32] 0..31
+in::ok = 256 1 ones;
+
+calc::lambda_flow outer_eq(u, v) {
+    u 0 scalar_mul 1 add uo =
+    v 0 scalar_mul 1 add vo =
+    u vo matmul lhs =
+    uo v matmul rhs =
+    lhs rhs == m =
+} return m;
+
+calc::lambda_flow record(lab, u, sum, n, r32, ok) {
+    lab 1000 div lidx =
+    lidx r32 outer_eq y =                     # [1,32] one-hot of the label
+    u u mul ok matmul nz0 =                   # [1,1] |u|^2, 0 for the all-zero row
+    nz0 0 > nz =                              # [1,1] 1 when there is a vector
+    y transpose yc =
+    yc nz matmul yvc =                        # [32,1] the one-hot, or zeros
+    yvc u matmul d =                          # [32,256] the vector under its label
+    sum d add sum_new =
+    yvc transpose yv =
+    n yv add n_new =
+} return sum_new, n_new;
+
+out::sum_new = dqt("work/protos.dqt", "sum");
+out::n_new = dqt("work/protos.dqt", "n");

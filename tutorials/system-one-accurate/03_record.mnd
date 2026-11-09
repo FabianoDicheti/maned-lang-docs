@@ -1,0 +1,77 @@
+# 03_record.mnd -- put one (text, label) into the memory
+#
+#   ./03_record.sh "the text" urgent      (04_query.sh does this with the XLM's answer)
+#
+# The write-back of the loop, and the whole of what the memory learns:
+#
+#   counts[f, L] += 1   for every feature f of the text (same hash as 01_lookup.mnd)
+#   ntexts[L]    += 1
+#
+# That is one outer product, b^T . y, added to the counts. Nothing else is
+# stored, so the memory is a pure function of the recorded texts: 06_rebuild.sh
+# replays work/memory.tsv through this program and gets the same bytes.
+#
+# The inputs are loaded before anything is written, so the program writes the
+# new memory over work/memory.dqt itself; the caller appends "label<TAB>text"
+# to work/memory.tsv, the dataset. (06_rebuild.sh recovers the memory from
+# that file if a record is ever interrupted mid-write.)
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::msg = spm("work/q/text.txt", "work/sentencepiece.bpe.model") {max: 64};
+in::lab = csv("work/q/label.csv");          # [1,1] the label's column
+in::counts = dqt("work/memory.dqt", "counts");
+in::ntexts = dqt("work/memory.dqt", "ntexts");
+in::rb = csv("work/ranges/r4096.csv");
+in::r32 = csv("work/ranges/r32.csv");
+in::k = [[[[0, 1]]]];
+
+calc::lambda_flow outer_eq(u, v) {
+    u 0 scalar_mul 1 add uo =
+    v 0 scalar_mul 1 add vo =
+    u vo matmul lhs =
+    uo v matmul rhs =
+    lhs rhs == m =
+} return m;
+
+calc::lambda_flow record(msg, lab, counts, ntexts, rb, r32, k) {
+    lab 1000 div lidx =
+    lidx r32 outer_eq y =                     # [1,32] one-hot of the label
+
+    # the text's features, exactly as the lookup computes them
+    msg k {stride: 1, padding: 0} conv2d nx0 =
+    nx0 {dim0: 1, dim1: -1} reshape nx =
+    msg 2 > keepu =
+    keepu keepu transpose matmul qu =
+    qu 0 scalar_mul zero =
+    nx zero {axis: 1} concat nxt =
+    nxt 1 > keep =
+    keep keep transpose matmul qb =
+    qb qu add q =
+    msg 4099 scalar_mul t4 =
+    t4 nxt add hraw =
+    hraw 2048 div hq =
+    hq 2048 scalar_mul hqm =
+    hraw hqm sub h =
+    t4 2048 div uq =
+    uq 2048 scalar_mul uqm =
+    t4 uqm sub u0 =
+    u0 2048 add u =
+    h transpose hc =
+    hc rb outer_eq Bb =
+    u transpose uc =
+    uc rb outer_eq Bu =
+    keep Bb matmul bb =
+    keepu Bu matmul bu =
+    bb bu add b =                             # [1,4096]
+
+    # the update
+    b transpose bc =
+    bc y matmul d =                           # [4096,32] the text's features under its label
+    counts d add counts_new =
+    ntexts y add ntexts_new =
+} return counts_new, ntexts_new, q;
+
+out::counts_new = dqt("work/memory.dqt", "counts");
+out::ntexts_new = dqt("work/memory.dqt", "ntexts");

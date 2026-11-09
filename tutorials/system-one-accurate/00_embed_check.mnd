@@ -1,0 +1,35 @@
+# 00_embed_check.mnd -- the first sentence through the worker: text in, vector out
+#
+#   printf '%s\n' "Any sentence, in any of XLM-R's languages." > work/q/text.txt && maned-run 00_embed_check.mnd
+#
+# spm() tokenizes work/q/text.txt here with the checkpoint's SentencePiece
+# model (the native Unigram tokenizer: the same ids as the Hugging Face
+# tokenizer); embed() sends the ids to the worker as POST /api/embed and
+# verifies the 1024-int reply against the sha256 the worker computed over its
+# own bytes. The vector is deterministic: the same sentence gives the same
+# bytes on every worker, and the note prints the model and the time.
+#
+# quantres 5 is the worker's output scale, so the vector lands untouched and
+# out::csv writes it at five decimals (3255 -> 0.03255). Nothing is computed
+# here on purpose: a value of this vector is up to ~3 000 000 raw, so even
+# its square overflows int32. Every program that does arithmetic on these
+# vectors runs at quantres 3 (the value lands divided by 100) - the first
+# fixed-point decision of the project, and part 3 of the tutorial.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 5;
+
+device::worker {
+    host = env("S1_WORKER_HOST");   # the worker's address, from the environment like the login
+    port = 4780;
+    user = env("XLM_USER");
+    pass = env("XLM_PASS");
+}
+
+in::v = embed("worker", "work/q/text.txt", "work/sentencepiece.bpe.model");
+
+calc::lambda_flow look(v) {
+    v r =
+} return r;
+
+out::r = csv("work/q/vector.csv");

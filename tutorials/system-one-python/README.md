@@ -7,6 +7,14 @@ learns from an XLM-RoBERTa worker on your LAN, and runs inside your
 Python app through the Maned Python binding. Everything that
 computes is a `.mnd` program; the rest is strings, files and processes.
 
+This is the **speed-first** edition of the loop: one worker, a count judge,
+an answer in milliseconds when the memory knows the text. An
+**accuracy-first** edition — two teachers (XLM-R and an entailment model),
+a prototype judge over the learned embeddings, and a learning rule that
+writes only what both teachers agree on — has its own
+[tutorial page](https://maned-lang.com/tutorial-accurate.html) and
+[folder](../system-one-accurate/) (Python app only, for now).
+
 ## Deploy from zero
 
 1. **A worker.** Tutorial parts 1 and 2: a spare x86 computer booted from

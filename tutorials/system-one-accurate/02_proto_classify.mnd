@@ -1,0 +1,147 @@
+# 02_proto_classify.mnd -- the accuracy edition's judge: ONE embedding, two verdicts
+#
+#   (04_query.sh runs it for every text the known-text cache does not answer)
+#
+# The text is embedded on the XLM-R worker and whitened to the 256-d unit
+# vector u exactly as in 02_xlm_classify.mnd. Then:
+#
+#   anchors    s = u . labs^T     the cosine to every label description (x10^6),
+#              best = the nearest candidate description row - the zero-shot
+#              verdict of the speed edition, unchanged
+#   prototype  one centroid per label L from the centroid memory (protos.dqt):
+#                c_L = unit( (warm * a_L + sum_L) / (warm + n_L) )
+#              a_L the unit MEAN of L's description rows (its anchor), sum_L and
+#              n_L the recorded vectors; `warm` (proto_policy.csv) is how many
+#              texts the anchor is worth, so a label with no texts yet is judged
+#              by its anchor alone and the anchor fades as real texts arrive.
+#              ps = u . c^T (x10^6) over the candidates, pbest its argmax,
+#              pmargin = best - second (x10^6), and the tier from the policy row
+#              of the request's risk: 2 (auto) when pmargin >= t_auto AND the
+#              winning label has learned at least min_n texts (an anchor-only
+#              verdict is zero-shot, not memory: it never answers alone), 1 when
+#              pmargin >= t_verify, else 0.
+#
+# The mean is taken BEFORE the norm: a sum of many unit vectors would overflow
+# the int32 square inside isqrt after ~46 texts, a mean never does.
+# u itself is written to work/q/u.csv so 03_record_proto.mnd can learn the
+# text without asking the worker again.
+#
+# work/q/cand_d.csv is the [1,D] candidate mask over description rows and
+# work/q/d2l.csv the [D,32] row->label one-hot, both written as 0.001/0.000
+# so they land as raw 1/0 at quantres 3.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+device::worker {
+    host = env("S1_WORKER_HOST");   # the XLM-R worker's address, from the environment like the login
+    port = 4780;
+    user = env("XLM_USER");
+    pass = env("XLM_PASS");
+}
+
+in::q = embed("worker", "work/q/text.txt", "work/sentencepiece.bpe.model");
+in::labs = csv("work/labels_u.csv");        # [D,256] unit rows at 10^-3
+in::cand = csv("work/q/cand_d.csv");        # [1,D] raw 1/0: candidate description rows
+in::d2l = csv("work/q/d2l.csv");            # [D,32] raw 1/0: row i belongs to label column j
+in::req = csv("work/q/req.csv");            # [4,32] row 0 candidate columns, row 2 the risk in column 0
+in::ppolicy = csv("proto_policy.csv");      # [4,4] per risk: t_auto, t_verify (cosine margin, permille), warm, min_n
+in::sum = dqt("work/protos.dqt", "sum");    # [32,256]
+in::n = dqt("work/protos.dqt", "n");        # [1,32]
+in::mean = dqt("work/xlm-stats.dqt", "mean");      # [1,1024]
+in::w = dqt("work/xlm-stats.dqt", "whiten");       # [256,1024]
+in::r32 = csv("work/ranges/r32.csv");       # [1,32] 0..31
+in::r4 = csv("work/ranges/r4.csv");         # [1,4]
+in::ok = 256 1 ones;
+in::rk = 1 256 ones;
+
+# pick(row [1,N], rn [1,N] = 0..N-1, idx [1,1]) -> the one-hot at idx, and row's value there
+calc::lambda_flow pick(row, rn, idx) {
+    rn 0 scalar_mul 1 add o =
+    o idx scalar_mul irow =
+    rn irow == h =
+    h transpose hc =
+    row hc matmul v =
+} return h, v;
+
+calc::lambda_flow classify(q, labs, cand, d2l, req, ppolicy, sum, n, mean, w, r32, r4, ok, rk) {
+    # --- the text's unit vector, as 02_xlm_classify.mnd
+    q mean sub c =
+    c w transpose matmul 100 div z3 =
+    z3 z3 mul ok matmul isqrt nq =
+    z3 1000 scalar_mul nq rk matmul div u =
+
+    # --- the anchor verdict (the speed edition's zero-shot lane)
+    u labs transpose matmul s =               # [1,D] cosine x 10^6
+    cand 1 sub cm =
+    cm 10000000 scalar_mul pen =
+    s cand mul pen add sm =
+    sm argmax best =
+
+    # --- the request: candidate columns and the policy row of its risk
+    req 1000 div rq =
+    r4 transpose r4c =
+    r4c 0 == e0 =
+    r4c 1 == e1 =
+    r4c 2 == e2 =
+    r4c 3 == e3 =
+    e0 transpose e0r =
+    e2 transpose e2r =
+    e0r rq matmul cmask =                     # [1,32] candidates
+    e2r rq matmul riskrow =
+    r32 transpose r32c =
+    r32c 0 == f0 =
+    riskrow f0 matmul ridx =                  # [1,1] 0 low, 1 medium, 2 high
+    r4 0 scalar_mul 1 add o4 =
+    ridx o4 matmul rrow =
+    r4 rrow == rsel =
+    rsel ppolicy matmul thr =                 # [1,4] the policy row
+    thr e0 matmul t_auto =
+    thr e1 matmul t_verify =
+    thr e2 matmul warm =                      # [1,1] how many texts the anchor is worth
+    thr e3 matmul min_n =                     # [1,1] texts a label needs before the judge answers alone
+
+    # --- one anchor per label: the unit mean of its description rows
+    d2l transpose labs matmul A =             # [32,256] the sum of L's description rows
+    A A mul ok matmul isqrt na =              # [32,1]
+    A 1000 scalar_mul na rk matmul div a =    # unit rows (0 where L has no description)
+
+    # --- the centroids: mean of (warm copies of the anchor + the recorded vectors), normalised
+    r32 0 scalar_mul 1 add o32 =
+    o32 transpose o32c =                      # [32,1]
+    o32c warm matmul wcol =                   # [32,1] warm on every row
+    wcol rk matmul W =                        # [32,256]
+    a W mul aw =                              # warm * a_L
+    aw sum add c0 =
+    n transpose nc =                          # [32,1]
+    nc wcol add nn =                          # n_L + warm
+    nn rk matmul NN =
+    c0 NN div c1 =                            # the mean: components <= 1000
+    c1 c1 mul ok matmul isqrt ncn =
+    c1 1000 scalar_mul ncn rk matmul div cen = # unit centroid rows (0 where nothing is known)
+
+    # --- the prototype verdict over the candidates
+    u cen transpose matmul ps0 =              # [1,32] cosine x 10^6
+    cmask 1 sub cmm =
+    cmm 10000000 scalar_mul penl =
+    ps0 cmask mul penl add ps =               # non-candidates at -10^7
+    ps argmax pbest =
+    ps r32 pbest pick hb, p1 =
+    hb 1000000 scalar_mul knock =
+    ps knock sub pk =
+    pk argmax psecond =
+    ps r32 psecond pick hb2, p2 =
+    p1 p2 sub pmargin =                       # x 10^6
+    n r32 pbest pick hn, nbest =              # how many recorded texts back the verdict
+    t_auto 1000 scalar_mul ta =               # permille of cosine -> x 10^6
+    t_verify 1000 scalar_mul tv =
+    pmargin ta >= ga0 =
+    nbest min_n >= enough =                   # the judge has seen enough of the winning label
+    ga0 enough mul ga =
+    pmargin tv >= gv =
+    ga gv add ptier =
+} return best, s, pbest, pmargin, ptier, nbest, ps, u;
+
+out::s = csv("work/q/xlm_scores.csv");
+out::ps = csv("work/q/proto_scores.csv");
+out::u = csv("work/q/u.csv");

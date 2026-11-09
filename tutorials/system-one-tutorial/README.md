@@ -1,4 +1,4 @@
-# System One, in Maned — the complete project
+# System One, in Maned — the speed-first edition
 
 This folder is the project built step by step in the
 [tutorial](https://maned-lang.com/tutorial.html): a decision layer that
@@ -6,6 +6,21 @@ answers a classification question in milliseconds from its own memory,
 learns from an XLM-RoBERTa worker on your LAN, and runs inside your
 Python, Kotlin or Rust app through the Maned bindings. Everything that
 computes is a `.mnd` program; the rest is strings, files and processes.
+
+It is the first of two editions of the same loop. This one pays for nothing
+it does not need: one worker, a count judge, an answer in milliseconds when
+the memory knows the text. The
+[accuracy-first edition](../system_one_accurate/) pays time for quality: a
+second teacher (an entailment model), a judge that generalises from what it
+learned, and a learning rule that never writes a label the two teachers
+dispute. Same memory format, same label registry, same request shape.
+
+| | speed-first (this folder) | accuracy-first |
+|---|---|---|
+| known text | the count memory, ~8 ms | the same |
+| unseen text | count judge → else the XLM-R worker's zero-shot label (~0.4 s) | one XLM-R embedding → a prototype judge over learned centroids; when unsure, the NLI worker decides (seconds) |
+| learns | the XLM-R label when its margin ≥ 70 ‰ | the NLI label when the prototype judge agrees and the NLI margin ≥ 250 ‰; the rest waits for review |
+| measured on 264 unseen texts, 240 learned | judge 0.39, final 0.45 | prototype judge 0.44; final 0.48 with half the texts answered without the second worker (agreement rule), or 0.52 with a quarter (learn every confident teacher label) |
 
 ## Deploy from zero
 
@@ -111,17 +126,6 @@ them all). Training mode (`--train`, or `S1_XLM=always`) is the exception: you a
 teaching, so every worker label is learned. The Kotlin and Rust apps are feature-equal with the
 Python reference — the same confidence gate, verifier, training mode, `--pending`/`--resolve`
 review queue and command line. Set `S1_LEARN` in `~/.config/maned/xlm.env` to tune it.
-
-Two teachers gate better than one. With `S1_WORKER=pair` the loop asks both the XLM-R worker
-(`S1_WORKER_HOST`) and an entailment (NLI) worker (`S1_NLI_HOST`) on every unseen text: the NLI
-verdict is the answer, and the margin that `S1_LEARN` gates is the NLI margin when the two agree
-and 0 when they disagree, so a disagreement is always held for review, never learned.
-`S1_LEARN_STRICT=1` keeps that gate on in training mode. On our benchmark the two teachers agree
-on about a third of unseen texts and are right 71 % of the time when they do (82 % above the
-median margin), against 52 % for the better teacher alone. The NLI worker and its lane files
-(`S1_NLI_DIR`: `nli_lane.py`, `02_nli_classify.mnd`) are not part of this tutorial yet, so
-`S1_WORKER=pair` and `S1_WORKER=nli` don't run from this folder; the default XLM-R teacher
-needs neither.
 
 ## Measured
 

@@ -1,0 +1,31 @@
+# 00_init_protos.mnd -- the empty centroid memory of the accuracy edition
+#
+#   maned-run 00_init_protos.mnd       (once, after 00_init_memory.mnd; ./00_setup.sh does both)
+#
+# The second memory is ONE file with two tensors:
+#
+#   work/protos.dqt
+#     sum  [32,256]  the sum of the whitened unit vectors (02_proto_classify.mnd's
+#                    `u`, components at 10^-3) of every text recorded under each label
+#     n    [1,32]    how many vectors each row sums
+#
+# Columns are the label slots of work/labels.tsv, shared with memory.dqt.
+# 02_proto_classify.mnd turns a row into the label's centroid (its mean,
+# warm-started with the label's anchor description, normalised) and scores an
+# unseen text by cosine against every candidate's centroid; 03_record_proto.mnd
+# adds one vector. Like the count memory, it is a pure function of the
+# recorded texts: 06_rebuild.sh replays work/vectors.csv and gets the same bytes.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::z = 32 256 zeros;
+in::zn = 1 32 zeros;
+
+calc::lambda_flow init(z, zn) {
+    z 1 scalar_mul sum =
+    zn 1 scalar_mul n =
+} return sum, n;
+
+out::sum = dqt("work/protos.dqt", "sum");
+out::n = dqt("work/protos.dqt", "n");

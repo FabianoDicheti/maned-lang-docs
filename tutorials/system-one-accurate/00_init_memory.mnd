@@ -1,0 +1,45 @@
+# 00_init_memory.mnd -- the empty memory, and the three index rows the programs read
+#
+#   mkdir -p work/q/out work/ranges && maned-run 00_init_memory.mnd      (once; run it again to start over)
+#
+# The memory is ONE file with two tensors, both plain counts:
+#
+#   work/memory.dqt
+#     counts  [4096,32]  how often each feature was seen under each label
+#     ntexts  [1,32]     how many texts were recorded under each label
+#
+# Rows of `counts` are hash buckets of a text's features: the first 2048 for
+# (piece, next piece) transitions, the second 2048 for single pieces. Columns
+# are label slots: line i of work/labels.tsv is column i. Everything the
+# System One knows is a function of these counts; 03_record.mnd adds a text,
+# 01_lookup.mnd reads them, 06_rebuild.sh recomputes them from the text file.
+#
+# The three csv files are 0..N-1 in one row. maned-serve takes literal or
+# file defaults only (no host-side `range`), and the lookup program is served
+# as it is, so it reads its ranges from these files like any other input.
+#
+# Every memory program runs at quantres 3: a csv input lands x1000, a count
+# or an id inside a flow is a raw integer, and a probability is a permille.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::z = 4096 32 zeros;
+in::zt = 1 32 zeros;
+in::r4096 = 4096 range;
+in::r32 = 32 range;
+in::r4 = 4 range;
+
+calc::lambda_flow init(z, zt, r4096, r32, r4) {
+    z 1 scalar_mul counts =
+    zt 1 scalar_mul ntexts =
+    r4096 {dim0: 1, dim1: 4096} reshape rb =
+    r32 {dim0: 1, dim1: 32} reshape rl =
+    r4 {dim0: 1, dim1: 4} reshape rr =
+} return counts, ntexts, rb, rl, rr;
+
+out::counts = dqt("work/memory.dqt", "counts");
+out::ntexts = dqt("work/memory.dqt", "ntexts");
+out::rb = csv("work/ranges/r4096.csv");
+out::rl = csv("work/ranges/r32.csv");
+out::rr = csv("work/ranges/r4.csv");

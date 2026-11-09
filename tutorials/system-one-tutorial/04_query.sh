@@ -12,11 +12,6 @@
 #        S1_XLM=always ./04_query.sh ...       TRAINING MODE: the XLM runs on every request and its
 #                                              label is learned even when the memory answered alone;
 #                                              the answer does not change. 05_eval.sh measures in it.
-#        S1_LEARN_STRICT=1 S1_XLM=always ...   training mode where the teacher's margin ALONE decides
-#                                              what is learned (S1_LEARN): a low margin is held
-#        S1_WORKER=pair ./04_query.sh ...      BOTH teachers (the XLM on S1_WORKER_HOST, the NLI
-#                                              model on S1_NLI_HOST): the NLI verdict answers, and the
-#                                              label is learned only when the two AGREE with margin
 #
 # needs: the memory (00_init_memory.mnd), the worker (. ~/.config/maned/xlm.env)
 # does:  one request, in order:
@@ -67,8 +62,7 @@ decide() {
     p_xlm=$(nth "$p" "$xlm_col")
     if [ "$informed" = 1 ] && [ "$tier" = 2 ] && [ "$best" != "$xlm_col" ] && [ "$p_xlm" -lt "$t_dispute" ]; then disputed=1; fi
     learn=${S1_LEARN:-70}; confident=0
-    if [ "${S1_LEARN_STRICT:-0}" = 1 ]; then [ "${xlm_margin:-0}" -ge "$((learn * 1000))" ] && confident=1   # the margin alone decides
-    elif [ "${S1_XLM:-}" = always ] || { [ "$tier" = 1 ] && [ "$best" = "$xlm_col" ]; } || [ "${xlm_margin:-0}" -ge "$((learn * 1000))" ]; then confident=1; fi
+    if [ "${S1_XLM:-}" = always ] || { [ "$tier" = 1 ] && [ "$best" = "$xlm_col" ]; } || [ "${xlm_margin:-0}" -ge "$((learn * 1000))" ]; then confident=1; fi
     if [ "${S1_NO_RECORD:-}" != 1 ]; then
       if [ "$disputed" = 1 ]; then
         printf '%s\t%s\t%s\t%s\t%s\n' "$xlm_name" "$best_name" "$p_best" "$p_xlm" "$(cat work/q/text.txt)" >> work/review.tsv
@@ -89,8 +83,6 @@ report() {
   [ "$known" = 1 ] && printf ' (%s, coverage %s/%s)' "$kbest_name" "$cov_best" "$q"
   printf '   %s ms\n' "$t_lookup"
   [ -n "$xlm_name" ] && printf 'xlm     %-10s cosine %s   %s ms\n' "$xlm_name" "$xlm_cos" "$t_xlm"
-  [ -n "$xlm_name" ] && [ "${S1_WORKER:-xlmr}" = pair ] && printf 'pair    xlm-r %s (margin %s%%o, %s ms)  nli %s (margin %s%%o, %s ms)  %s\n' \
-    "$pair_x_name" "$((pair_x_margin / 1000))" "$pair_t_x" "$pair_n_name" "$((pair_n_margin / 1000))" "$pair_t_n" "$([ "$pair_agree" = 1 ] && echo AGREE || echo DISAGREE)"
   printf 'ANSWER  %-10s via %s in %s ms' "$answer" "$via" "$t_answer"
   [ -n "$recorded" ] && printf '  (recorded as %s)' "$recorded"
   [ -n "$held" ] && printf '  HELD: low teacher confidence (margin %s%%o) -> work/pending.tsv, not learned' "$held"

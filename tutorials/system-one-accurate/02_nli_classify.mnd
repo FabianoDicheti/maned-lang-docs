@@ -1,0 +1,34 @@
+# 02_nli_classify.mnd -- the NLI lane's verdict (plan M5): which candidate
+# hypothesis does the text entail most? (the accuracy edition's teacher)
+#
+# The worker (maned-nli-bark, mDeBERTa-v3 int32) scores every (text,
+# hypothesis) pair - nli/nli_lane.py asks it once per candidate
+# row of work/descs_nli.tsv and writes the ENTAILMENT logits to work/q/nli_e.csv.
+# This program is HF's zero-shot rule (multi_label=False): a softmax over the
+# entailment logits of the candidates, argmax = the answer; `s` carries
+# P(entail) x 10^6 per row so the decide() contract (xlm_cos, xlm_margin at
+# x10^6, S1_LEARN in permille) holds unchanged.
+#
+# Non-candidate rows are pushed 16 below the maximum before the softmax (the
+# table's floor: exp(-16) is 0 at this scale). The mask is written 1.000 /
+# 0.000 (raw 1000/0): multiplying by it and dividing by 1.000 keeps the
+# logits at the program scale and clears the matmul-squared tag (E025) that a
+# raw-1 mask would leave on the softmax input.
+mnd::quantmax = 2147483;
+mnd::quantmin = -2147483;
+mnd::quantres = 3;
+
+in::e = csv("work/q/nli_e.csv");         # [1,D] entailment logits (0 off-candidates)
+in::cand = csv("work/q/cand_m.csv");     # [1,D] 1.000 for candidate rows, 0.000 otherwise
+in::one = csv("work/q/cand_one.csv");    # [1,D] 1.000
+
+calc::lambda_flow classify(e, cand, one) {
+    e cand mul one div em =                   # candidates' logits, at scale (others 0)
+    cand one sub 16 scalar_mul pen =          # 0 for candidates, -16.000 otherwise
+    em pen add z =
+    z softmax p =                             # [1,D] P(entail) at 10^-3
+    p 1000 scalar_mul s =                     # x 10^6 raw, as the cosine lane's `s`
+    s argmax best =
+} return best, s;
+
+out::s = csv("work/q/nli_scores.csv");
